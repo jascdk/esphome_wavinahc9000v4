@@ -1368,7 +1368,8 @@ void WavinAHC9000::read_device_info() {
     uint16_t hw_vers = regs[2] & 0x007F;
     
     // SW Version: MC610xx where xx is SWVERS[7:0] in BCD
-    // Bits 15:4 contain SWVERS[7:0], bits 3:0 contain BETA[3:0]
+    // Register format: bits 15:4 = SWVERS[7:0], bits 3:0 = BETA[3:0]
+    // We shift right 4 bits to extract SWVERS, then mask to 8 bits
     uint16_t sw_vers_bcd = (regs[3] >> 4) & 0x00FF;
     uint16_t beta = regs[3] & 0x000F;
     
