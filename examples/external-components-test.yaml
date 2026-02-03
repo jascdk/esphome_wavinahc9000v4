@@ -52,3 +52,24 @@ climate:
     wavin_ahc9000_id: wavin_controller
     name: "Test Zone"
     channel: 1
+
+text_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: control_unit_address
+    name: "Control Unit Address"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: hw_version
+    name: "Hardware Version"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: sw_version
+    name: "Software Version"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: device_name
+    name: "Device Name"

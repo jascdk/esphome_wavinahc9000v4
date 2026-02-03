@@ -142,8 +142,13 @@ climate:
 ### Text Sensor (`text_sensor` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
+- **type** (*Required*): Text sensor type, one of:
+  - `control_unit_address`: Physical address of the control unit (read at startup)
+  - `hw_version`: Hardware version (e.g., MC11012)
+  - `sw_version`: Software version (e.g., MC61014 or MC61014b11 for beta)
+  - `device_name`: Device name (e.g., AC-116)
 
-Displays auto-generated YAML configuration for detected zones.
+**Device Info Sensors**: The control unit address, hardware version, software version, and device name are read once during startup from the Info category registers (0x09) as specified in the Modbus documentation. These provide identification information about the Wavin AHC-9000 controller.
 
 ### Binary Sensor (`binary_sensor` platform)
 
