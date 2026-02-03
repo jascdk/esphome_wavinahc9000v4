@@ -27,9 +27,9 @@ async def to_code(config):
     cg.add(var.set_parent(hub))
     cg.add(var.set_channel(config[CONF_CHANNEL]))
     if config[CONF_TYPE] == "comfort":
-        cg.add(var.set_type(WavinSetpointNumber.Type.COMFORT))
+        cg.add(var.set_type(cg.RawExpression("wavin_ahc9000::WavinSetpointNumber::Type::COMFORT")))
         cg.add(hub.add_comfort_number(var))
     else:
-        cg.add(var.set_type(WavinSetpointNumber.Type.STANDBY))
+        cg.add(var.set_type(cg.RawExpression("wavin_ahc9000::WavinSetpointNumber::Type::STANDBY")))
         cg.add(hub.add_standby_number(var))
     cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
