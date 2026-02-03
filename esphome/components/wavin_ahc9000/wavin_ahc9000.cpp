@@ -276,6 +276,12 @@ void WavinAHC9000::dump_channel_floor_limits(uint8_t channel) {
 
 void WavinAHC9000::add_channel_climate(WavinZoneClimate *c) { this->single_ch_climates_.push_back(c); }
 void WavinAHC9000::add_group_climate(WavinZoneClimate *c) { this->group_climates_.push_back(c); }
+void WavinAHC9000::add_comfort_number(WavinSetpointNumber *n) {
+  // Numbers are write-only controls, no storage needed
+}
+void WavinAHC9000::add_standby_number(WavinSetpointNumber *n) {
+  // Numbers are write-only controls, no storage needed
+}
 void WavinAHC9000::add_active_channel(uint8_t ch) {
   if (ch < 1 || ch > 16) return;
   if (std::find(this->active_channels_.begin(), this->active_channels_.end(), ch) == this->active_channels_.end()) {
@@ -482,11 +488,28 @@ bool WavinAHC9000::write_masked_register(uint8_t category, uint8_t page, uint8_t
 
 // High-level write helpers
 void WavinAHC9000::write_channel_setpoint(uint8_t channel, float celsius) {
+  // Legacy method - writes to comfort setpoint
+  this->write_channel_comfort_setpoint(channel, celsius);
+}
+
+void WavinAHC9000::write_channel_comfort_setpoint(uint8_t channel, float celsius) {
   if (channel < 1 || channel > 16) return;
   uint8_t page = (uint8_t) (channel - 1);
   uint16_t raw = this->c_to_raw(celsius);
   if (this->write_register(CAT_PACKED, page, PACKED_MANUAL_TEMPERATURE, raw)) {
     this->channels_[channel].setpoint_c = celsius;
+  // Schedule a quick refresh on next cycle and briefly suspend normal polling to avoid collisions
+  this->urgent_channels_.push_back(channel);
+  this->suspend_polling_until_ = millis() + 100; // 100 ms guard
+  }
+}
+
+void WavinAHC9000::write_channel_standby_setpoint(uint8_t channel, float celsius) {
+  if (channel < 1 || channel > 16) return;
+  uint8_t page = (uint8_t) (channel - 1);
+  uint16_t raw = this->c_to_raw(celsius);
+  if (this->write_register(CAT_PACKED, page, PACKED_STANDBY_TEMPERATURE, raw)) {
+    this->channels_[channel].standby_setpoint_c = celsius;
   // Schedule a quick refresh on next cycle and briefly suspend normal polling to avoid collisions
   this->urgent_channels_.push_back(channel);
   this->suspend_polling_until_ = millis() + 100; // 100 ms guard

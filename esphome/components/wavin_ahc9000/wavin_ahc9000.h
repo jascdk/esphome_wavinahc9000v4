@@ -5,6 +5,7 @@
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/components/number/number.h"
 #include "esphome/core/component.h"
 
 #include <vector>
@@ -18,11 +19,13 @@ namespace sensor { class Sensor; }
 namespace text_sensor { class TextSensor; }
 namespace binary_sensor { class BinarySensor; }
 namespace switch_ { class Switch; }
+namespace number { class Number; }
 namespace wavin_ahc9000 {
 
 // Forward
 class WavinZoneClimate;
 class WavinChildLockSwitch;
+class WavinSetpointNumber;
 
 class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
  public:
@@ -53,10 +56,14 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_channel_floor_min_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   void add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
+  void add_comfort_number(WavinSetpointNumber *n);
+  void add_standby_number(WavinSetpointNumber *n);
   void add_active_channel(uint8_t ch);
 
   // Send commands
   void write_channel_setpoint(uint8_t channel, float celsius);
+  void write_channel_comfort_setpoint(uint8_t channel, float celsius);
+  void write_channel_standby_setpoint(uint8_t channel, float celsius);
   void write_group_setpoint(const std::vector<uint8_t> &members, float celsius);
   void write_channel_mode(uint8_t channel, climate::ClimateMode mode);
   void write_channel_child_lock(uint8_t channel, bool enable);
@@ -132,6 +139,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     float floor_min_c{NAN};
     float floor_max_c{NAN};
     float setpoint_c{NAN};
+    float standby_setpoint_c{NAN};
     climate::ClimateMode mode{climate::CLIMATE_MODE_HEAT};
     climate::ClimateAction action{climate::CLIMATE_ACTION_OFF};
     uint8_t battery_pct{255}; // 0..100; 255=unknown
@@ -246,6 +254,36 @@ class WavinChildLockSwitch : public switch_::Switch {
   }
   WavinAHC9000 *parent_{nullptr};
   uint8_t channel_{0};
+};
+
+// Number component for controlling comfort and standby setpoints
+class WavinSetpointNumber : public number::Number {
+ public:
+  enum class Type {
+    COMFORT,
+    STANDBY,
+  };
+
+  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
+  void set_channel(uint8_t ch) { this->channel_ = ch; }
+  void set_type(Type t) { this->type_ = t; }
+
+ protected:
+  void control(float value) override {
+    if (this->parent_ != nullptr) {
+      if (this->type_ == Type::COMFORT) {
+        this->parent_->write_channel_comfort_setpoint(this->channel_, value);
+      } else {
+        this->parent_->write_channel_standby_setpoint(this->channel_, value);
+      }
+      // Optimistic publish
+      this->publish_state(value);
+    }
+  }
+
+  WavinAHC9000 *parent_{nullptr};
+  uint8_t channel_{0};
+  Type type_{Type::COMFORT};
 };
 
 // Inline helpers for configuring sensors
