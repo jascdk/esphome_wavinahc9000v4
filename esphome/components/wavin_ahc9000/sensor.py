@@ -13,15 +13,20 @@ from . import WavinAHC9000
 
 CONF_PARENT_ID = "wavin_ahc9000_id"
 CONF_CHANNEL = "channel"
-
-
 CONF_TYPE = "type"
 
 CONFIG_SCHEMA = sensor.sensor_schema().extend(
     {
         cv.GenerateID(CONF_PARENT_ID): cv.use_id(WavinAHC9000),
         cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
-    cv.Required(CONF_TYPE): cv.one_of("battery", "temperature", "floor_temperature", "floor_min_temperature", "floor_max_temperature", lower=True),
+        cv.Required(CONF_TYPE): cv.one_of(
+            "battery",
+            "temperature",
+            "floor_temperature",
+            "floor_min_temperature",
+            "floor_max_temperature",
+            lower=True,
+        ),
     }
 )
 

@@ -30,10 +30,10 @@ CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend(
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_PARENT_ID])
     sens = await text_sensor.new_text_sensor(config)
-    
+
     # Apply defaults based on sensor type
     sensor_type = config[CONF_TYPE]
-    
+
     if sensor_type == "control_unit_address":
         cg.add(sens.set_icon(ICON_ADDRESS))
         cg.add(hub.add_control_unit_address_text_sensor(sens))
