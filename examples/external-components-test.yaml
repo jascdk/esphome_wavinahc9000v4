@@ -1,0 +1,53 @@
+# Test Configuration - External Components Usage
+# This file demonstrates how to use the Wavin AHC-9000 component via external_components
+
+esphome:
+  name: test-wavin
+  platform: ESP32
+  board: esp32dev
+
+# Reference the component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Or use a specific branch/tag:
+# external_components:
+#   - source: github://jascdk/esphome_wavinahc9000v4@main
+#     components: [wavin_ahc9000]
+
+# Or reference a local directory for development:
+# external_components:
+#   - source:
+#       type: local
+#       path: /path/to/esphome_wavinahc9000v4
+#     components: [wavin_ahc9000]
+
+logger:
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ssid: "test"
+  password: "test"
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  tx_enable_pin: GPIO5
+
+climate:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Test Zone"
+    channel: 1

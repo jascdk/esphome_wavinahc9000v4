@@ -1,0 +1,85 @@
+# Basic Wavin AHC-9000 ESPHome Configuration
+# This example shows a minimal setup with a single zone
+
+substitutions:
+  device_name: wavin-heating
+  friendly_name: Wavin Heating Controller
+
+esphome:
+  name: ${device_name}
+  platform: ESP32
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  # Optional: GPIO pin to enable RS485 transmission (DE/RE pin on RS485 module)
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  
+# Add climate control for zone 1 (Living Room)
+climate:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    channel: 1
+
+# Optional: Add temperature sensor for zone 1
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: temperature
+    name: "Living Room Temperature"
+  
+  # Optional: Add battery level sensor (for wireless thermostats)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: battery
+    name: "Living Room Battery"
+
+# Optional: Add child lock switch
+switch:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: child_lock
+    name: "Living Room Child Lock"

@@ -1,0 +1,230 @@
+# Full Wavin AHC-9000 ESPHome Configuration
+# This example shows all available features with multiple zones
+
+substitutions:
+  device_name: wavin-heating
+  friendly_name: Wavin Heating Controller
+
+esphome:
+  name: ${device_name}
+  platform: ESP32
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component with all options
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  # RS485 control pins (connect to DE and RE on RS485 module)
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  # Advanced options
+  temp_divisor: 10.0
+  receive_timeout_ms: 1000
+  poll_channels_per_cycle: 2
+  allow_mode_writes: true
+  # Optional: Set friendly names for channels
+  channel_01_friendly_name: "Living Room"
+  channel_02_friendly_name: "Kitchen"
+  channel_03_friendly_name: "Bedroom 1"
+  channel_04_friendly_name: "Bedroom 2"
+
+# Climate entities for individual zones
+climate:
+  # Zone 1: Living Room
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    channel: 1
+  
+  # Zone 2: Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    channel: 2
+    use_floor_temperature: true  # Use floor sensor for this zone
+  
+  # Zone 3: Bedroom 1
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 1"
+    channel: 3
+  
+  # Zone 4: Bedroom 2
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 2"
+    channel: 4
+  
+  # Group climate: Control bedrooms together
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "All Bedrooms"
+    members: [3, 4]
+
+# Temperature sensors
+sensor:
+  # Zone 1: Living Room sensors
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: temperature
+    name: "Living Room Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: battery
+    name: "Living Room Battery"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: comfort_setpoint
+    name: "Living Room Comfort Setpoint"
+  
+  # Zone 2: Kitchen sensors (with floor temperature)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: temperature
+    name: "Kitchen Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: floor_temperature
+    name: "Kitchen Floor Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: floor_min_temperature
+    name: "Kitchen Floor Min Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: floor_max_temperature
+    name: "Kitchen Floor Max Temperature"
+  
+  # Zone 3: Bedroom 1 sensors
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: temperature
+    name: "Bedroom 1 Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: battery
+    name: "Bedroom 1 Battery"
+
+# Number entities for setpoint control
+number:
+  # Zone 1: Living Room setpoints
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: comfort
+    name: "Living Room Comfort Setpoint"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: standby
+    name: "Living Room Standby Setpoint"
+  
+  # Zone 2: Kitchen setpoints
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: comfort
+    name: "Kitchen Comfort Setpoint"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: standby
+    name: "Kitchen Standby Setpoint"
+
+# Child lock switches
+switch:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: child_lock
+    name: "Living Room Child Lock"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: child_lock
+    name: "Kitchen Child Lock"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: child_lock
+    name: "Bedroom 1 Child Lock"
+
+# Repair buttons (for troubleshooting zone issues)
+button:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    name: "Living Room Repair"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    name: "Kitchen Repair"
+    extended: true  # Extended repair mode
+
+# Auto-discovery helpers
+text_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Generated YAML Configuration"
+
+binary_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: yaml_ready
+    name: "YAML Configuration Ready"
