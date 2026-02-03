@@ -3,7 +3,8 @@
 
 esphome:
   name: test-wavin
-  platform: ESP32
+
+esp32:
   board: esp32dev
 
 # Reference the component from GitHub
