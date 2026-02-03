@@ -14,6 +14,7 @@
 namespace esphome {
 namespace sensor { class Sensor; }
 namespace switch_ { class Switch; }
+namespace text_sensor { class TextSensor; }
 namespace wavin_ahc9000 {
 
 // Forward
@@ -49,6 +50,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
   void add_active_channel(uint8_t ch);
+  
+  // Device info text sensors
+  void add_control_unit_address_text_sensor(text_sensor::TextSensor *s) { this->control_unit_address_text_sensor_ = s; }
+  void add_hw_version_text_sensor(text_sensor::TextSensor *s) { this->hw_version_text_sensor_ = s; }
+  void add_sw_version_text_sensor(text_sensor::TextSensor *s) { this->sw_version_text_sensor_ = s; }
+  void add_device_name_text_sensor(text_sensor::TextSensor *s) { this->device_name_text_sensor_ = s; }
 
   // Send commands
   void write_channel_setpoint(uint8_t channel, float celsius);
@@ -76,6 +83,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::string get_yaml_group_climate() const { return this->yaml_last_group_climate_; }
   // Group climate chunk helper (returns entity blocks without 'climate:' header)
   std::string get_yaml_group_climate_chunk(uint8_t start, uint8_t count) const;
+  // Device info reading
+  void read_device_info();
   // Chunk helpers: return YAML entity blocks (complete entities only, NO section header)
   // start is 0-based entity index among discovered active channels; count is number of entities to include
   std::string get_yaml_climate_chunk(uint8_t start, uint8_t count) const;
@@ -145,6 +154,11 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_min_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
+  // Device info text sensors
+  text_sensor::TextSensor *control_unit_address_text_sensor_{nullptr};
+  text_sensor::TextSensor *hw_version_text_sensor_{nullptr};
+  text_sensor::TextSensor *sw_version_text_sensor_{nullptr};
+  text_sensor::TextSensor *device_name_text_sensor_{nullptr};
   std::string yaml_last_suggestion_{};
   std::string yaml_last_climate_{};
   std::string yaml_last_battery_{};
@@ -188,6 +202,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t CAT_CHANNELS = 0x03;
   static constexpr uint8_t CAT_ELEMENTS = 0x01;
   static constexpr uint8_t CAT_PACKED = 0x02;
+  static constexpr uint8_t CAT_INFO = 0x09;
 
   static constexpr uint8_t CH_TIMER_EVENT = 0x00; // status incl. output bit
   static constexpr uint16_t CH_TIMER_EVENT_OUTP_ON_MASK = 0x0010;
@@ -215,6 +230,13 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_MASK = 0x0018; // extended clear: bits 3 and 4
   static constexpr uint16_t PACKED_CONFIGURATION_STRICT_UNLOCK_MASK = 0x0078; // bits 3..6 (avoid touching mode bits 0..2)
   static constexpr uint16_t PACKED_CONFIGURATION_CHILD_LOCK_MASK = 0x0800; // child lock bit (0x4000->0x4800)
+
+  // Info category register indices
+  static constexpr uint8_t INFO_CONTROL_UNIT_ADDRESS_L = 0x00;
+  static constexpr uint8_t INFO_CONTROL_UNIT_ADDRESS_H = 0x01;
+  static constexpr uint8_t INFO_HW_VERSION = 0x02;
+  static constexpr uint8_t INFO_SW_VERSION = 0x03;
+  static constexpr uint8_t INFO_DEVICE_NAME = 0x04;
 
   // I/O reliability: number of attempts for read/write before escalating to WARN
   static constexpr uint8_t IO_RETRY_ATTEMPTS = 2; // first failure logged at DEBUG, final at WARN

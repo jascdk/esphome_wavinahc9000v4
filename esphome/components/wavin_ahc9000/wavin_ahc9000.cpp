@@ -1,6 +1,7 @@
 #include "wavin_ahc9000.h"
 #include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/text_sensor/text_sensor.h"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -25,7 +26,11 @@ static uint16_t crc16(const uint8_t *frame, size_t len) {
   return temp;
 }
 
-void WavinAHC9000::setup() { ESP_LOGCONFIG(TAG, "Wavin AHC9000 hub setup"); }
+void WavinAHC9000::setup() { 
+  ESP_LOGCONFIG(TAG, "Wavin AHC9000 hub setup");
+  // Read device info at startup
+  this->read_device_info();
+}
 void WavinAHC9000::loop() {}
 
 void WavinAHC9000::set_channel_friendly_name(uint8_t channel, const std::string &name) {
@@ -1346,6 +1351,67 @@ void WavinZoneClimate::update_from_parent() {
     }
   }
   this->publish_state();
+}
+
+// Read device info from Info category registers (category 0x09)
+void WavinAHC9000::read_device_info() {
+  std::vector<uint16_t> regs;
+  
+  // Read all 5 info registers in one call (indices 0x00 to 0x04, page 0)
+  // According to spec: Control Unit Address L, Control Unit Address H, HW Version, SW Version, Device Name
+  if (this->read_registers(CAT_INFO, 0, INFO_CONTROL_UNIT_ADDRESS_L, 5, regs) && regs.size() >= 5) {
+    // Control Unit Address is a 32-bit value: ADDRESS[31:0] = (ADDRESS_H << 16) | ADDRESS_L
+    uint32_t control_unit_addr = ((uint32_t)regs[1] << 16) | regs[0];
+    
+    // HW Version: MC110xx where xx is HWVERS[6:0] in decimal
+    // Bits 6:0 contain the version suffix
+    uint16_t hw_vers = regs[2] & 0x007F;
+    
+    // SW Version: MC610xx where xx is SWVERS[7:0] in BCD
+    // Register format: bits 15:4 = SWVERS[7:0], bits 3:0 = BETA[3:0]
+    // We shift right 4 bits to extract SWVERS, then mask to 8 bits
+    uint16_t sw_vers_bcd = (regs[3] >> 4) & 0x00FF;
+    uint16_t beta = regs[3] & 0x000F;
+    
+    // Device Name: AC-xxx where xxx is DEVNAME[15:0] in decimal
+    uint16_t device_name = regs[4];
+    
+    // Format the strings according to spec
+    char addr_str[32];
+    snprintf(addr_str, sizeof(addr_str), "0x%08X", (unsigned)control_unit_addr);
+    
+    char hw_str[32];
+    snprintf(hw_str, sizeof(hw_str), "MC110%02u", (unsigned)hw_vers);
+    
+    char sw_str[32];
+    if (beta != 0) {
+      snprintf(sw_str, sizeof(sw_str), "MC610%02ub%u", (unsigned)sw_vers_bcd, (unsigned)beta);
+    } else {
+      snprintf(sw_str, sizeof(sw_str), "MC610%02u", (unsigned)sw_vers_bcd);
+    }
+    
+    char dev_str[32];
+    snprintf(dev_str, sizeof(dev_str), "AC-%u", (unsigned)device_name);
+    
+    ESP_LOGI(TAG, "Device Info - Address: %s, HW: %s, SW: %s, Device: %s", 
+             addr_str, hw_str, sw_str, dev_str);
+    
+    // Publish to text sensors if configured
+    if (this->control_unit_address_text_sensor_ != nullptr) {
+      this->control_unit_address_text_sensor_->publish_state(addr_str);
+    }
+    if (this->hw_version_text_sensor_ != nullptr) {
+      this->hw_version_text_sensor_->publish_state(hw_str);
+    }
+    if (this->sw_version_text_sensor_ != nullptr) {
+      this->sw_version_text_sensor_->publish_state(sw_str);
+    }
+    if (this->device_name_text_sensor_ != nullptr) {
+      this->device_name_text_sensor_->publish_state(dev_str);
+    }
+  } else {
+    ESP_LOGW(TAG, "Failed to read device info registers");
+  }
 }
 
 }  // namespace wavin_ahc9000

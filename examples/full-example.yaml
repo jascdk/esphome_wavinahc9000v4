@@ -170,3 +170,25 @@ switch:
     channel: 3
     type: child_lock
     name: "Bedroom 1 Child Lock"
+
+# Device information text sensors
+text_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: control_unit_address
+    name: "Control Unit Address"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: hw_version
+    name: "Hardware Version"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: sw_version
+    name: "Software Version"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: device_name
+    name: "Device Name"
