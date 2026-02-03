@@ -112,12 +112,6 @@ sensor:
     type: battery
     name: "Living Room Battery"
   
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: comfort_setpoint
-    name: "Living Room Comfort Setpoint"
-  
   # Zone 2: Kitchen sensors (with floor temperature)
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
@@ -156,34 +150,6 @@ sensor:
     type: battery
     name: "Bedroom 1 Battery"
 
-# Number entities for setpoint control
-number:
-  # Zone 1: Living Room setpoints
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: comfort
-    name: "Living Room Comfort Setpoint"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: standby
-    name: "Living Room Standby Setpoint"
-  
-  # Zone 2: Kitchen setpoints
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 2
-    type: comfort
-    name: "Kitchen Comfort Setpoint"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 2
-    type: standby
-    name: "Kitchen Standby Setpoint"
-
 # Child lock switches
 switch:
   - platform: wavin_ahc9000
@@ -203,28 +169,3 @@ switch:
     channel: 3
     type: child_lock
     name: "Bedroom 1 Child Lock"
-
-# Repair buttons (for troubleshooting zone issues)
-button:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    name: "Living Room Repair"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 2
-    name: "Kitchen Repair"
-    extended: true  # Extended repair mode
-
-# Auto-discovery helpers
-text_sensor:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    name: "Generated YAML Configuration"
-
-binary_sensor:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: yaml_ready
-    name: "YAML Configuration Ready"
