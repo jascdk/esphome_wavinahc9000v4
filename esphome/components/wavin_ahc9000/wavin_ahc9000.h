@@ -59,6 +59,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_sw_version_text_sensor(text_sensor::TextSensor *s) { this->sw_version_text_sensor_ = s; }
   void add_device_name_text_sensor(text_sensor::TextSensor *s) { this->device_name_text_sensor_ = s; }
 
+  // Clock synchronization
+  void set_time_id(const std::string &time_id) { this->time_id_ = time_id; }
+  void set_sync_clock_on_connect(bool v) { this->sync_clock_on_connect_ = v; }
+  void set_clock_sync_interval(uint32_t seconds) { this->clock_sync_interval_ = seconds; }
+  bool sync_clock_now();
+
   // Send commands
   void write_channel_setpoint(uint8_t channel, float celsius);
   void write_group_setpoint(const std::vector<uint8_t> &members, float celsius);
@@ -122,6 +128,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   bool write_register(uint8_t category, uint8_t page, uint8_t index, uint16_t value);
   // Masked write: apply (reg & and_mask) | or_mask semantics
   bool write_masked_register(uint8_t category, uint8_t page, uint8_t index, uint16_t and_mask, uint16_t or_mask);
+  // Write multiple registers at once (for clock - all 7 registers must be written together)
+  bool write_clock_registers(const std::vector<uint16_t> &values);
 
   void publish_updates();
 
@@ -247,8 +255,26 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t INFO_SW_VERSION = 0x03;
   static constexpr uint8_t INFO_DEVICE_NAME = 0x04;
 
+  // Clock category (0x05) register indices
+  static constexpr uint8_t CAT_CLOCK = 0x05;
+  static constexpr uint8_t CLOCK_YEAR = 0x00;        // 2001-2099
+  static constexpr uint8_t CLOCK_MONTH = 0x01;       // 1-12
+  static constexpr uint8_t CLOCK_DAY = 0x02;         // 1-31
+  static constexpr uint8_t CLOCK_DAY_OF_WEEK = 0x03; // 0-6 (0=Monday, 6=Sunday)
+  static constexpr uint8_t CLOCK_HOUR = 0x04;        // 0-23
+  static constexpr uint8_t CLOCK_MINUTE = 0x05;      // 0-59
+  static constexpr uint8_t CLOCK_SECOND = 0x06;      // 0-59
+  static constexpr uint8_t CLOCK_REGISTER_COUNT = 7;
+
   // I/O reliability: number of attempts for read/write before escalating to WARN
   static constexpr uint8_t IO_RETRY_ATTEMPTS = 2; // first failure logged at DEBUG, final at WARN
+
+  // Clock sync state
+  std::string time_id_{};
+  bool sync_clock_on_connect_{false};
+  uint32_t clock_sync_interval_{0};  // seconds, 0 = no periodic sync
+  uint32_t last_clock_sync_{0};      // millis of last sync
+  bool clock_synced_once_{false};
 };
 
 // Simple dedicated switch subclass for child lock control. Avoids relying on codegen lambdas
