@@ -202,7 +202,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t CAT_CHANNELS = 0x03;
   static constexpr uint8_t CAT_ELEMENTS = 0x01;
   static constexpr uint8_t CAT_PACKED = 0x02;
-  static constexpr uint8_t CAT_INFO = 0x09;
+  static constexpr uint8_t CAT_INFO = 0x07;
 
   static constexpr uint8_t CH_TIMER_EVENT = 0x00; // status incl. output bit
   static constexpr uint16_t CH_TIMER_EVENT_OUTP_ON_MASK = 0x0010;
