@@ -581,6 +581,10 @@ void WavinAHC9000::write_channel_child_lock(uint8_t channel, bool enable) {
   }
 }
 
+void WavinAHC9000::write_group_child_lock(const std::vector<uint8_t> &members, bool enable) {
+  for (auto ch : members) this->write_channel_child_lock(ch, enable);
+}
+
 void WavinAHC9000::write_channel_floor_min_temperature(uint8_t channel, float celsius) {
   if (channel < 1 || channel > 16) return;
   // Clamp to a sane range; controller likely enforces further constraints
