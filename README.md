@@ -6,12 +6,11 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Group Climate**: Create virtual thermostats that control multiple zones together
-- **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity
+- **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity with persistence across restarts
 - **Temperature Sensors**: Room temperature, floor temperature sensors
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
-- **Thermostat Connection Status**: Monitor if thermostats are connected and communicating
 - **Child Lock**: Control and monitor child lock status per zone
 - **Group Child Lock**: Create master switches that control child locks across multiple zones
 - **Device Information**: Read controller hardware/software version, address, and device name
@@ -166,6 +165,7 @@ sensor:
 - **Range**: 0.1 to 1.0°C
 - **Step**: 0.1°C
 - **Default**: 0.3°C
+- **Persistence**: Values are automatically saved to flash memory and restored after ESP32 restart
 
 The hysteresis value works as follows:
 - When `current_temperature > target_temperature + hysteresis`: Action is IDLE
