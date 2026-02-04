@@ -4,7 +4,7 @@ from esphome.components import uart, climate
 from esphome.const import CONF_ID
 from esphome import pins
 
-CODEOWNERS = ["@you"]
+CODEOWNERS = ["@jascdk"]
 # Ensure dependent component code is compiled so their headers are available.
 AUTO_LOAD = ["climate", "uart", "sensor", "switch", "text_sensor"]
 
@@ -41,7 +41,6 @@ CONFIG_SCHEMA = (
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(cv.polling_component_schema("5s"))
 )
-
 
 
 async def to_code(config):

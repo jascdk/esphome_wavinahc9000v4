@@ -6,13 +6,11 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Group Climate**: Create virtual thermostats that control multiple zones together
-- **Temperature Sensors**: Room temperature, floor temperature, and comfort setpoint sensors
-- **Floor Temperature Limits**: Read and control floor temperature min/max limits
+- **Temperature Sensors**: Room temperature, floor temperature sensors
+- **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
 - **Child Lock**: Control and monitor child lock status per zone
-- **Setpoint Control**: Individual control of comfort and standby setpoints via number entities
-- **Repair Functions**: Buttons to repair/normalize zone configurations
-- **Auto-Discovery**: Automatic YAML generation for detected active zones
+- **Device Information**: Read controller hardware/software version, address, and device name
 
 ## Hardware Requirements
 
@@ -111,33 +109,15 @@ climate:
 - **type** (*Required*): Sensor type, one of:
   - `battery`: Battery level percentage
   - `temperature`: Current room temperature
-  - `comfort_setpoint`: Current comfort setpoint
   - `floor_temperature`: Floor temperature
-  - `floor_min_temperature`: Floor minimum temperature limit
-  - `floor_max_temperature`: Floor maximum temperature limit
+  - `floor_min_temperature`: Floor minimum temperature limit (read-only)
+  - `floor_max_temperature`: Floor maximum temperature limit (read-only)
 
 ### Switch Entity (`switch` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
 - **channel** (*Required*): Channel number (1-16)
 - **type** (*Optional*, default: `child_lock`): Switch type (currently only `child_lock`)
-
-### Number Entity (`number` platform)
-
-- **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **channel** (*Required*): Channel number (1-16)
-- **type** (*Required*): Number type, one of:
-  - `comfort`: Comfort temperature setpoint (5-35°C)
-  - `standby`: Standby temperature setpoint (5-35°C)
-
-### Button Entity (`button` platform)
-
-- **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **channel** (*Required*): Channel number (1-16)
-- **extended** (*Optional*, default: `false`): Extended repair mode
-- **aggressive** (*Optional*, default: `false`): Aggressive repair mode
-- **normalize** (*Optional*, default: `false`): Normalize configuration
-- **normalize_off** (*Optional*, default: `false`): Normalize with off mode
 
 ### Text Sensor (`text_sensor` platform)
 
@@ -150,35 +130,9 @@ climate:
 
 **Device Info Sensors**: The control unit address, hardware version, software version, and device name are read once during startup from the Info category registers (0x09) as specified in the Modbus documentation. These provide identification information about the Wavin AHC-9000 controller.
 
-### Binary Sensor (`binary_sensor` platform)
-
-- **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **type** (*Required*): `yaml_ready` - indicates when auto-generated YAML is ready
-
 ## Full Example
 
 See the [examples/full-example.yaml](examples/full-example.yaml) file for a comprehensive configuration with multiple zones, sensors, and controls.
-
-## Auto-Discovery and YAML Generation
-
-The component can automatically discover active zones and generate YAML configuration. To use this feature:
-
-1. Add a text sensor and binary sensor:
-
-```yaml
-text_sensor:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    name: "Generated YAML"
-
-binary_sensor:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: yaml_ready
-    name: "YAML Ready"
-```
-
-2. After the device boots and scans all channels, the text sensor will contain suggested YAML configuration for all detected active zones.
 
 ## Troubleshooting
 

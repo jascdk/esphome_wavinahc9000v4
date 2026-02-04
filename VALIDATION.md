@@ -22,11 +22,8 @@ esphome_wavinahc9000v4/
             ├── wavin_ahc9000.cpp       # C++ implementation
             ├── climate.py              # Climate platform
             ├── sensor.py               # Sensor platform
-            ├── binary_sensor.py        # Binary sensor platform
             ├── text_sensor.py          # Text sensor platform
-            ├── switch.py               # Switch platform
-            ├── button.py               # Button platform
-            └── number.py               # Number platform
+            └── switch.py               # Switch platform
 ```
 
 ## Component Structure Checklist

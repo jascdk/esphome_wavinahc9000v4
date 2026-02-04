@@ -8,10 +8,7 @@ from . import WavinAHC9000, WavinZoneClimate
 CONF_PARENT_ID = "wavin_ahc9000_id"
 CONF_CHANNEL = "channel"
 CONF_MEMBERS = "members"
-
-
 CONF_STRICT_MODE_WRITES = "strict_mode_writes"
-
 CONF_USE_FLOOR_TEMPERATURE = "use_floor_temperature"
 
 CONFIG_SCHEMA = climate.climate_schema(WavinZoneClimate).extend(
