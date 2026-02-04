@@ -243,7 +243,7 @@ void WavinAHC9000::update() {
                 float humidity = this->parse_humidity(regs[ELEM_HUMIDITY]);
                 if (!std::isnan(humidity)) {
                   st.humidity_pct = humidity;
-                  ESP_LOGD(TAG, "CH%u humidity=%.1f%%", ch_num, humidity);
+                  ESP_LOGD(TAG, "CH%u humidity=%.1f%%", (unsigned) ch_num, humidity);
                   auto it_h = this->humidity_sensors_.find(ch_num);
                   if (it_h != this->humidity_sensors_.end() && it_h->second != nullptr) {
                     it_h->second->publish_state(humidity);
