@@ -1,0 +1,186 @@
+# Wavin AHC-9000 ESPHome Configuration - Temperature Low/High (Eco/Comfort) Control
+# This example demonstrates the new temp_low and temp_high number entities
+
+substitutions:
+  device_name: wavin-temp-control
+  friendly_name: Wavin Temperature Control
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Wavin Temp Control"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from local directory for testing
+external_components:
+  - source: 
+      type: local
+      path: ../esphome/components
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  flow_control_pin: GPIO5  # DE/RE pins tied together on most RS485 modules
+
+# ----------------------
+# Climate Entities
+# ----------------------
+climate:
+  # Individual climate entities
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    channel: 1
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    channel: 2
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 1"
+    channel: 3
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 2"
+    channel: 4
+
+# ----------------------
+# Number Entities
+# ----------------------
+number:
+  # Temperature Low (Eco) - controls the eco mode temperature setpoint
+  # When thermostat is in ECO mode, it will target this temperature
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [1, 2, 3, 4]
+    name: "Eco Temperature"
+    entity_category: config
+  
+  # Temperature High (Comfort) - controls the comfort mode temperature setpoint
+  # When thermostat is in COMFORT mode, it will target this temperature
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [1, 2, 3, 4]
+    name: "Comfort Temperature"
+    entity_category: config
+  
+  # You can also create separate controls for different zones
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [1, 2]
+    name: "Living Area Eco Temperature"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [1, 2]
+    name: "Living Area Comfort Temperature"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [3, 4]
+    name: "Bedrooms Eco Temperature"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [3, 4]
+    name: "Bedrooms Comfort Temperature"
+    entity_category: config
+  
+  # Optional: Hysteresis control (temperature deadband)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: hysteresis
+    members: [1, 2, 3, 4]
+    name: "Hysteresis"
+    entity_category: config
+
+# ==========================================
+# How It Works
+# ==========================================
+#
+# The Wavin AHC-9000 thermostat supports multiple operating modes:
+# - MANUAL: Uses the manual temperature setpoint
+# - ECO: Uses the temp_low (eco) temperature setpoint
+# - COMFORT: Uses the temp_high (comfort) temperature setpoint
+# - STANDBY: Uses the standby temperature setpoint
+#
+# The temp_low and temp_high sliders allow you to configure
+# these eco and comfort temperature setpoints. When you switch
+# the thermostat mode, it will automatically use the appropriate
+# temperature target.
+#
+# ==========================================
+# Configuration Details
+# ==========================================
+#
+# - Range: 6-40°C (as specified in requirements)
+# - Step: 0.5°C (half-degree precision)
+# - Persistence: Values are saved to flash and restored on reboot
+# - Members: List of channels (1-16) to control
+#
+# ==========================================
+# Usage Example
+# ==========================================
+#
+# 1. Set "Eco Temperature" to 18°C
+# 2. Set "Comfort Temperature" to 22°C
+# 3. Switch thermostat to ECO mode → targets 18°C
+# 4. Switch thermostat to COMFORT mode → targets 22°C
+# 5. Values persist across ESP reboots
+#
+# ==========================================
+# Testing
+# ==========================================
+#
+# 1. Deploy this configuration to your ESP32
+# 2. In Home Assistant, adjust the temperature sliders
+# 3. Check ESPHome logs for confirmation:
+#    [I][wavin_ahc9000.number:xxx] Writing temp_low (eco) 18.0°C to 4 channel(s)
+#    [I][wavin_ahc9000:xxx] Eco temperature written to thermostat: ch=1 value=18.0°C
+#    [I][wavin_ahc9000:xxx] Eco temperature written to thermostat: ch=2 value=18.0°C
+#    ... (continues for all channels)

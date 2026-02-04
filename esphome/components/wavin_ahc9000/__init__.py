@@ -12,6 +12,8 @@ ns = cg.esphome_ns.namespace("wavin_ahc9000")
 WavinAHC9000 = ns.class_("WavinAHC9000", cg.PollingComponent, uart.UARTDevice)
 WavinZoneClimate = ns.class_("WavinZoneClimate", climate.Climate, cg.Component)
 WavinHysteresisNumber = ns.class_("WavinHysteresisNumber", number.Number, cg.Component)
+WavinTempLowNumber = ns.class_("WavinTempLowNumber", number.Number, cg.Component)
+WavinTempHighNumber = ns.class_("WavinTempHighNumber", number.Number, cg.Component)
 
 CONF_UART_ID = "uart_id"
 CONF_TX_ENABLE_PIN = "tx_enable_pin"
