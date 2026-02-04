@@ -9,33 +9,27 @@ CONF_PARENT_ID = "wavin_ahc9000_id"
 CONF_TYPE = "type"
 CONF_MEMBERS = "members"
 
-WavinChildLockSwitch = ns.class_("WavinChildLockSwitch", switch.Switch)
-WavinStandbySwitch = ns.class_("WavinStandbySwitch", switch.Switch)
-
-# Support child_lock and standby switch types
-SWITCH_TYPES = {
-    "child_lock": WavinChildLockSwitch,
-    "standby": WavinStandbySwitch,
-}
+WavinChildLockSwitch = ns.class_("WavinChildLockSwitch", switch.Switch, cg.Component)
+WavinStandbySwitch = ns.class_("WavinStandbySwitch", switch.Switch, cg.Component)
 
 CONFIG_SCHEMA = cv.All(
-    switch.switch_schema().extend(
-        {
-            cv.GenerateID(CONF_PARENT_ID): cv.use_id(WavinAHC9000),
-            cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
-            cv.Optional(CONF_MEMBERS): cv.ensure_list(cv.int_range(min=1, max=16)),
-            cv.Optional(CONF_TYPE, default="child_lock"): cv.one_of(*SWITCH_TYPES.keys(), lower=True),
-        }
-    ),
+    cv.Schema({
+        cv.GenerateID(): cv.declare_id(switch.Switch),
+        cv.GenerateID(CONF_PARENT_ID): cv.use_id(WavinAHC9000),
+        cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
+        cv.Optional(CONF_MEMBERS): cv.ensure_list(cv.int_range(min=1, max=16)),
+        cv.Optional(CONF_TYPE, default="child_lock"): cv.one_of("child_lock", "standby", lower=True),
+    }).extend(cv.COMPONENT_SCHEMA),
     cv.has_exactly_one_key(CONF_CHANNEL, CONF_MEMBERS),
 )
 
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_PARENT_ID])
-    switch_type = config[CONF_TYPE]
-    switch_class = SWITCH_TYPES[switch_type]
     
-    var = cg.new_Pvariable(config[cg.CONF_ID], switch_class)
+    # Create the appropriate switch type based on config
+    switch_type = config[CONF_TYPE]
+    var = cg.new_Pvariable(config[cv.CONF_ID])
+    
     await switch.register_switch(var, config)
     cg.add(var.set_parent(hub))
     

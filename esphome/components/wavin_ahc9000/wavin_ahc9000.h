@@ -353,7 +353,8 @@ class WavinChildLockSwitch : public switch_::Switch {
   std::vector<uint8_t> members_{};
 };
 
-// Simple dedicated switch subclass for standby mode control (ON=standby/OFF, OFF=heat/ON)
+// Simple dedicated switch subclass for standby mode control
+// ON = standby mode (climate OFF), OFF = heating mode (climate HEAT)
 // Similar to child lock switch but controls the climate mode instead
 class WavinStandbySwitch : public switch_::Switch {
  public:
