@@ -6,6 +6,7 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/time/real_time_clock.h"
 #include "esphome/core/component.h"
+#include "esphome/core/preferences.h"
 
 #include <vector>
 #include <map>
@@ -17,7 +18,6 @@ namespace esphome {
 namespace sensor { class Sensor; }
 namespace switch_ { class Switch; }
 namespace text_sensor { class TextSensor; }
-namespace binary_sensor { class BinarySensor; }
 namespace number { class Number; }
 namespace wavin_ahc9000 {
 
@@ -59,9 +59,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
   void add_active_channel(uint8_t ch);
-  
-  // Binary sensors
-  void add_channel_thermostat_connected_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s);
   
   // Device info text sensors
   void add_control_unit_address_text_sensor(text_sensor::TextSensor *s) { this->control_unit_address_text_sensor_ = s; }
@@ -152,16 +149,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     // Basic plausibility filter (0..100%) to avoid invalid readings
     return (humidity >= 0.0f && humidity <= 100.0f) ? humidity : NAN;
   }
-  // Parse thermostat connection status from element status register
-  bool parse_thermostat_connection_status(const std::vector<uint16_t> &regs) const {
-    if (regs.empty()) return false;
-    uint16_t status = regs[ELEM_STATUS];
-    bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-    bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
-    // Thermostat is connected if ALIVE bit is set AND it's a thermostat
-    // Note: LOST bit check removed as it may not be reliable - ALIVE is the authoritative indicator
-    return is_alive && is_thermostat;
-  }
 
   // Simple cache per channel
   struct ChannelState {
@@ -180,8 +167,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     bool all_tp_lost{false};
     bool has_floor_sensor{false};
     bool child_lock{false};
-    // Thermostat connection status from ELEM_STATUS register
-    bool thermostat_connected{false};
   };
 
   std::map<uint8_t, ChannelState> channels_;
@@ -195,8 +180,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> humidity_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
-  // Binary sensors
-  std::map<uint8_t, binary_sensor::BinarySensor *> thermostat_connected_binary_sensors_;
   // Average temperature sensors: sensor pointer -> list of member channels
   struct AverageTempSensor {
     sensor::Sensor *sensor;
@@ -373,10 +356,6 @@ inline void WavinAHC9000::add_channel_humidity_sensor(uint8_t ch, sensor::Sensor
   this->humidity_sensors_[ch] = s;
 }
 
-inline void WavinAHC9000::add_channel_thermostat_connected_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s) {
-  this->thermostat_connected_binary_sensors_[ch] = s;
-}
-
 class WavinZoneClimate : public climate::Climate, public Component {
  public:
   void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
@@ -417,10 +396,25 @@ class WavinHysteresisNumber : public number::Number, public Component {
   void set_climate(WavinZoneClimate *c) { this->climate_ = c; }
   
   void setup() override {
-    // Initialize with current climate hysteresis value
-    if (this->climate_ != nullptr) {
-      float current = this->climate_->get_hysteresis();
-      this->publish_state(current);
+    // Load persisted value from flash
+    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    float value;
+    if (this->pref_.load(&value)) {
+      // Restore saved value
+      if (this->climate_ != nullptr) {
+        this->climate_->set_hysteresis(value);
+      }
+      this->publish_state(value);
+      ESP_LOGD("wavin_ahc9000.number", "Restored hysteresis: %.1f°C", value);
+    } else {
+      // First boot or no saved value - use current climate hysteresis value
+      if (this->climate_ != nullptr) {
+        float current = this->climate_->get_hysteresis();
+        this->publish_state(current);
+        // Save the default value
+        this->pref_.save(&current);
+        ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
+      }
     }
   }
 
@@ -430,11 +424,15 @@ class WavinHysteresisNumber : public number::Number, public Component {
     if (this->climate_ != nullptr) {
       this->climate_->set_hysteresis(value);
       this->publish_state(value);
+      // Save to flash for persistence across restarts
+      this->pref_.save(&value);
+      ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
     }
   }
 
   WavinAHC9000 *parent_{nullptr};
   WavinZoneClimate *climate_{nullptr};
+  ESPPreferenceObject pref_;
 };
 
 // Repair button removed; use API service to normalize
