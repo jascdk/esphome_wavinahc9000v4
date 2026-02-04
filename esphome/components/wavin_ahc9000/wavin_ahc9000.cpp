@@ -233,8 +233,8 @@ void WavinAHC9000::update() {
               if (regs.size() > ELEM_BATTERY_STATUS) {
                 uint16_t raw = regs[ELEM_BATTERY_STATUS];
                 uint8_t steps = (raw > 9) ? 9 : (uint8_t) raw;
-                // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9
-                uint8_t pct = (uint8_t) ((steps * 100 + 4) / 9);  // +4 for rounding
+                // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9 with proper rounding
+                uint8_t pct = (uint8_t) ((steps * 100 + 5) / 9);
                 st.battery_pct = pct;
                 auto it = this->battery_sensors_.find(ch_num);
                 if (it != this->battery_sensors_.end() && it->second != nullptr) {
@@ -870,8 +870,8 @@ void WavinAHC9000::generate_yaml_suggestion() {
           if (regs.size() > ELEM_BATTERY_STATUS) {
             uint16_t raw = regs[ELEM_BATTERY_STATUS];
             uint8_t steps = (raw > 9) ? 9 : (uint8_t) raw;
-            // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9
-            st.battery_pct = (uint8_t) ((steps * 100 + 4) / 9);  // +4 for rounding
+            // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9 with proper rounding
+            st.battery_pct = (uint8_t) ((steps * 100 + 5) / 9);
           }
         }
       }
