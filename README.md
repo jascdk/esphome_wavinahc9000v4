@@ -8,6 +8,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Standby Mode**: Bi-directional OFF mode that activates the thermostat's standby feature
 - **Group Climate**: Create virtual thermostats that control multiple zones together
 - **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity with persistence across restarts
+- **Bi-Directional Group Settings Sync**: Detect and synchronize hysteresis, eco, and comfort temperature changes made on physical thermostats across group members
 - **Temperature Sensors**: Room temperature, floor temperature sensors
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
@@ -95,10 +96,18 @@ climate:
 - **receive_timeout_ms** (*Optional*, default: `1000`): Receive timeout in milliseconds
 - **poll_channels_per_cycle** (*Optional*, default: `2`): Number of channels to poll per cycle
 - **allow_mode_writes** (*Optional*, default: `true`): Allow climate mode changes
+- **sync_group_settings** (*Optional*, default: `false`): Enable bi-directional synchronization of hysteresis, eco temp, and comfort temp within groups
 - **channel_XX_friendly_name** (*Optional*): Friendly name for channel XX (01-16)
 - **time_id** (*Optional*): ID of the ESPHome time component to use for clock synchronization
 - **sync_clock_on_connect** (*Optional*, default: `false`): Sync controller clock on connect
 - **clock_sync_interval** (*Optional*): Periodic clock sync interval (e.g., `1h`, `24h`)
+
+**Bi-Directional Group Settings Sync**: When `sync_group_settings` is enabled, the component will monitor hysteresis, eco temperature (temp_low), and comfort temperature (temp_high) settings on physical thermostats. If you change these settings directly on a thermostat (not through Home Assistant), the changes will be:
+1. Detected during the next polling cycle
+2. Reflected in the Home Assistant UI
+3. Automatically propagated to other thermostats in the same group(s)
+
+This ensures that all thermostats in a group maintain consistent settings even when adjusted manually. See the `examples/bi-directional-sync-example.yaml` for a complete configuration example.
 
 **Clock Synchronization**: The Wavin AHC-9000 controller has an internal clock that can be programmed via Modbus. You can synchronize this clock with Home Assistant's time by configuring a time component (e.g., `homeassistant` or `sntp`) and enabling clock sync. The clock is written atomically (all 7 registers at once) to prevent inconsistencies.
 
