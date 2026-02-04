@@ -1373,6 +1373,12 @@ void WavinAHC9000::read_device_info() {
     uint16_t sw_vers_bcd = (regs[3] >> 4) & 0x00FF;
     uint16_t beta = regs[3] & 0x000F;
     
+    // Convert BCD to decimal: BCD has each nibble as a decimal digit (0-9)
+    // High nibble = tens, low nibble = ones
+    uint8_t sw_vers_tens = (sw_vers_bcd >> 4) & 0x0F;
+    uint8_t sw_vers_ones = sw_vers_bcd & 0x0F;
+    uint16_t sw_vers_decimal = sw_vers_tens * 10 + sw_vers_ones;
+    
     // Device Name: AC-xxx where xxx is DEVNAME[15:0] in decimal
     uint16_t device_name = regs[4];
     
@@ -1385,9 +1391,9 @@ void WavinAHC9000::read_device_info() {
     
     char sw_str[32];
     if (beta != 0) {
-      snprintf(sw_str, sizeof(sw_str), "MC610%02ub%u", (unsigned)sw_vers_bcd, (unsigned)beta);
+      snprintf(sw_str, sizeof(sw_str), "MC610%02ub%u", (unsigned)sw_vers_decimal, (unsigned)beta);
     } else {
-      snprintf(sw_str, sizeof(sw_str), "MC610%02u", (unsigned)sw_vers_bcd);
+      snprintf(sw_str, sizeof(sw_str), "MC610%02u", (unsigned)sw_vers_decimal);
     }
     
     char dev_str[32];
