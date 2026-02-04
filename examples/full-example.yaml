@@ -220,33 +220,6 @@ sensor:
     members: [1, 2, 3, 4]  # All zones
     name: "House Average Temperature"
 
-# Binary sensors for thermostat connection status
-binary_sensor:
-  # Monitor if thermostats are connected and communicating
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: thermostat_connected
-    name: "Living Room Thermostat Connected"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 2
-    type: thermostat_connected
-    name: "Kitchen Thermostat Connected"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 3
-    type: thermostat_connected
-    name: "Bedroom 1 Thermostat Connected"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 4
-    type: thermostat_connected
-    name: "Bedroom 2 Thermostat Connected"
-
 # Child lock switches
 switch:
   # Individual child lock switches
