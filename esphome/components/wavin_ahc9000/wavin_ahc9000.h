@@ -264,6 +264,9 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t PACKED_FLOOR_MIN_TEMPERATURE = 0x0A; // 21.5C example
   static constexpr uint8_t PACKED_FLOOR_MAX_TEMPERATURE = 0x0B; // 25.5C example
   static constexpr uint8_t PACKED_HYSTERESIS = 0x0E; // Temperature control loop hysteresis (0.1°C per LSB)
+  // Hysteresis value limits (Celsius)
+  static constexpr float HYSTERESIS_MIN = 0.1f; // Minimum hysteresis (0.1°C)
+  static constexpr float HYSTERESIS_MAX = 2.0f; // Maximum hysteresis (2.0°C)
   // Note: PACKED_FLOOR_MIN_TEMPERATURE and PACKED_FLOOR_MAX_TEMPERATURE are contiguous; reads
   // have been consolidated (count=2 starting at MIN) to reduce RS485 transactions.
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x07;

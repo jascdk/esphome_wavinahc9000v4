@@ -821,9 +821,9 @@ void WavinAHC9000::write_channel_floor_max_temperature(uint8_t channel, float ce
 
 void WavinAHC9000::write_channel_hysteresis(uint8_t channel, float celsius) {
   if (channel < 1 || channel > 16) return;
-  // Clamp hysteresis to reasonable range (0.1 to 2.0°C)
-  if (celsius < 0.1f) celsius = 0.1f;
-  if (celsius > 2.0f) celsius = 2.0f;
+  // Clamp hysteresis to reasonable range using defined constants
+  if (celsius < HYSTERESIS_MIN) celsius = HYSTERESIS_MIN;
+  if (celsius > HYSTERESIS_MAX) celsius = HYSTERESIS_MAX;
   uint8_t page = (uint8_t) (channel - 1);
   uint16_t raw = this->c_to_raw(celsius);
   if (this->write_register(CAT_PACKED, page, PACKED_HYSTERESIS, raw)) {
