@@ -175,15 +175,22 @@ sensor:
 
 **Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for a climate entity. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
 
-- **Range**: 0.1 to 1.0°C
+- **Range**: 0.1 to 2.0°C (clamped for safety)
 - **Step**: 0.1°C
 - **Default**: 0.3°C
 - **Persistence**: Values are automatically saved to flash memory and restored after ESP32 restart
+- **Scope**: Written to both ESPHome (for display) AND the physical thermostat (PACKED register 0x0E)
 
 The hysteresis value works as follows:
 - When `current_temperature > target_temperature + hysteresis`: Action is IDLE
 - When `current_temperature < target_temperature - hysteresis`: Action is HEATING
 - Within the deadband: Action remains unchanged (prevents oscillation)
+
+**Important**: When you change the hysteresis value in Home Assistant, it is written to:
+1. **ESPHome memory**: For calculating the displayed climate action (HEATING/IDLE)
+2. **Physical thermostat**: Via Modbus to PACKED register 0x0E, affecting the actual relay control
+
+This ensures both the UI state and the physical heating behavior are synchronized.
 
 **Note**: Each climate entity (both single channel and group) can have its own hysteresis control.
 
