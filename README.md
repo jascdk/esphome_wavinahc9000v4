@@ -179,13 +179,17 @@ sensor:
 ### Number Entity (`number` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **climate_id** (*Optional*): ID of the climate entity to control
-- **members** (*Optional*): List of channel numbers to control (alternative to climate_id)
-- **type** (*Optional*, default: `hysteresis`): Number type (currently only `hysteresis`)
+- **type** (*Required*): Number type - `hysteresis`, `temp_low`, or `temp_high`
+- **climate_id** (*Optional*): ID of the climate entity to control (only for hysteresis)
+- **members** (*Required for temp_low/temp_high*): List of channel numbers (1-16) to control
 
-**Note**: Either `climate_id` OR `members` must be specified, but not both.
+**Configuration Rules**:
+- `hysteresis`: Requires either `climate_id` OR `members` (but not both)
+- `temp_low` and `temp_high`: Require `members` only (no climate_id)
 
-**Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for one or more channels. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
+#### Hysteresis Control
+
+The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for one or more channels. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
 
 - **Range**: 0.1 to 2.0°C (clamped for safety)
 - **Step**: 0.1°C
@@ -246,6 +250,50 @@ number:
     name: "Bedrooms Hysteresis"
     type: hysteresis
 ```
+
+#### Temperature Low (Eco) and Temperature High (Comfort) Controls
+
+**NEW**: The `temp_low` and `temp_high` number entities allow you to control the Eco and Comfort temperature setpoints for your thermostats. These are **optional** entities that you must explicitly configure.
+
+**temp_low (Eco Temperature)**:
+- Controls the target temperature when thermostat is in ECO mode
+- **Range**: 6.0 to 40.0°C
+- **Step**: 0.5°C
+- **Default**: 18.0°C
+- **Requires**: `members` parameter with list of channels
+
+**temp_high (Comfort Temperature)**:
+- Controls the target temperature when thermostat is in COMFORT mode
+- **Range**: 6.0 to 40.0°C  
+- **Step**: 0.5°C
+- **Default**: 22.0°C
+- **Requires**: `members` parameter with list of channels
+
+**Configuration Example**:
+```yaml
+number:
+  # Eco temperature for channels 1-4
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [1, 2, 3, 4]
+    name: "Eco Temperature"
+    entity_category: config
+  
+  # Comfort temperature for channels 1-4
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [1, 2, 3, 4]
+    name: "Comfort Temperature"
+    entity_category: config
+```
+
+**With Bi-Directional Sync**: When `sync_group_settings: true` is enabled, changes made directly on physical thermostats will be detected and:
+1. Reflected in the Home Assistant UI
+2. Automatically propagated to other thermostats in the same `members` list
+
+See `examples/temp-low-high-example.yaml` for a complete configuration example.
 
 ### Switch Entity (`switch` platform)
 
