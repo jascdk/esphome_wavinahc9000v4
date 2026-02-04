@@ -485,7 +485,14 @@ class WavinHysteresisNumber : public number::Number, public Component {
       // Also write to all sibling channels (other members of the same group(s))
       std::set<uint8_t> siblings = this->parent_->get_group_sibling_channels(ch);
       if (!siblings.empty()) {
-        ESP_LOGI("wavin_ahc9000.number", "Propagating hysteresis %.1f°C to %zu sibling channel(s)", value, siblings.size());
+        // Build comma-separated list of sibling channels for logging
+        std::string sibling_list;
+        for (uint8_t sibling : siblings) {
+          if (!sibling_list.empty()) sibling_list += ", ";
+          sibling_list += std::to_string(sibling);
+        }
+        ESP_LOGI("wavin_ahc9000.number", "Propagating hysteresis %.1f°C to sibling channel(s): %s", value, sibling_list.c_str());
+        
         for (uint8_t sibling : siblings) {
           if (written_channels.find(sibling) == written_channels.end()) {
             this->parent_->write_channel_hysteresis(sibling, value);
