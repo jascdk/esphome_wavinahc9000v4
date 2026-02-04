@@ -1,0 +1,254 @@
+# Wavin AHC-9000 ESPHome Configuration - Bi-Directional Group Settings Sync
+# This example demonstrates the new bi-directional sync feature for hysteresis,
+# temp_low (eco), and temp_high (comfort) settings.
+#
+# Feature Description:
+# When you change hysteresis, eco temperature, or comfort temperature directly
+# on a physical thermostat (not through Home Assistant), those changes will:
+# 1. Be detected by ESPHome
+# 2. Reflected in the Home Assistant UI
+# 3. Automatically propagated to other thermostats in the same group
+#
+# Example Scenario:
+# - Office (channel 3) and Bathroom (channel 4) are in the "Work Area" group
+# - If you manually change the hysteresis on the office thermostat from 0.3°C to 0.5°C
+# - ESPHome will detect this change
+# - The change will be reflected in Home Assistant
+# - The bathroom thermostat will also be updated to 0.5°C hysteresis
+# - The same applies to eco and comfort temperature settings
+
+substitutions:
+  device_name: wavin-bidirectional-sync
+  friendly_name: Wavin Bi-Directional Sync
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable logging at INFO level to see sync messages
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component with bi-directional sync enabled
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  # Enable bi-directional sync for group settings
+  # When true, changes made directly on physical thermostats will be detected
+  # and propagated to other members in the same group
+  sync_group_settings: true
+  
+# Climate entities
+climate:
+  # Individual climate for Office (Zone 3)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Office"
+    id: office_climate
+    channel: 3
+  
+  # Individual climate for Bathroom (Zone 4)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bathroom"
+    id: bathroom_climate
+    channel: 4
+  
+  # Individual climate for Living Room (Zone 1)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    id: living_room_climate
+    channel: 1
+  
+  # Individual climate for Kitchen (Zone 2)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    id: kitchen_climate
+    channel: 2
+  
+  # Group climate for Work Area (Office + Bathroom)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Work Area"
+    id: work_area_climate
+    members: [3, 4]
+  
+  # Group climate for Common Area (Living Room + Kitchen)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Common Area"
+    id: common_area_climate
+    members: [1, 2]
+
+# Number entities for controlling hysteresis, eco, and comfort temperatures
+number:
+  # Hysteresis controls for each group
+  # Changes made on physical thermostats will be detected and synced within groups
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: hysteresis
+    members: [3, 4]
+    name: "Work Area Hysteresis"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: hysteresis
+    members: [1, 2]
+    name: "Common Area Hysteresis"
+    entity_category: config
+  
+  # Eco (temp_low) temperature controls
+  # When changed on a physical thermostat, will sync to other group members
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [3, 4]
+    name: "Work Area Eco Temperature"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_low
+    members: [1, 2]
+    name: "Common Area Eco Temperature"
+    entity_category: config
+  
+  # Comfort (temp_high) temperature controls
+  # When changed on a physical thermostat, will sync to other group members
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [3, 4]
+    name: "Work Area Comfort Temperature"
+    entity_category: config
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: temp_high
+    members: [1, 2]
+    name: "Common Area Comfort Temperature"
+    entity_category: config
+
+# Temperature sensors to monitor rooms
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: temperature
+    name: "Living Room Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: temperature
+    name: "Kitchen Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: temperature
+    name: "Office Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 4
+    type: temperature
+    name: "Bathroom Temperature"
+
+# ==========================================
+# How It Works
+# ==========================================
+#
+# 1. Enable sync_group_settings: true in the wavin_ahc9000 configuration
+#
+# 2. When you change a setting directly on a physical thermostat:
+#    - ESPHome polls the thermostat registers every update_interval (5s default)
+#    - It detects the change by comparing with previous values
+#    - The change is logged in ESPHome logs
+#
+# 3. The change is propagated:
+#    - To all other thermostats in the same group(s)
+#    - To the Home Assistant UI (number entity state is updated)
+#
+# 4. Example log output:
+#    [I][wavin_ahc9000:xxx] CH3 hysteresis changed: 0.3°C -> 0.5°C
+#    [I][wavin_ahc9000:xxx] Syncing hysteresis 0.5°C from CH3 to sibling channel(s): 4
+#    [I][wavin_ahc9000:xxx] Hysteresis written to thermostat: ch=4 value=0.5°C (raw=0x0005)
+#    [D][wavin_ahc9000:xxx] Updated hysteresis number entity 'Work Area Hysteresis' to 0.5°C
+#
+# ==========================================
+# Testing Instructions
+# ==========================================
+#
+# 1. Deploy this configuration to your ESP32
+# 2. Open ESPHome logs to monitor sync activity
+# 3. On the physical Office thermostat (channel 3), change:
+#    - Hysteresis from 0.3°C to 0.5°C
+#    - Eco temperature from 18°C to 17°C
+#    - Comfort temperature from 22°C to 23°C
+# 4. Within 5 seconds (one update cycle), you should see:
+#    - Log messages indicating the change was detected
+#    - The Bathroom thermostat (channel 4) will be updated with the same values
+#    - The Home Assistant UI will reflect the new values
+# 5. Test the reverse: change settings on the Bathroom thermostat
+#    - The Office thermostat should be updated automatically
+#
+# ==========================================
+# Important Notes
+# ==========================================
+#
+# - Bi-directional sync only works within groups
+#   (channels that are members of the same group climates)
+# - Changes must be made on the physical thermostat, not through Home Assistant
+# - The polling interval (update_interval) determines how quickly changes are detected
+# - Shorter intervals (e.g., 3s) provide faster sync but increase RS485 bus traffic
+# - Set sync_group_settings: false to disable this feature if not needed
+#
+# ==========================================
+# Use Cases
+# ==========================================
+#
+# This feature is useful when:
+# - You have multiple thermostats that should have identical settings
+# - Users adjust settings on physical thermostats instead of Home Assistant
+# - You want settings to stay consistent across a group of rooms
+# - You're troubleshooting why thermostats have different behaviors

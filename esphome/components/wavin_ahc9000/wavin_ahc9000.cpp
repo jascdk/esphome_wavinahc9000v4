@@ -1490,7 +1490,7 @@ void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_v
       if (siblings.count(member) > 0) {
         // This number entity controls at least one affected channel, update its UI
         num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated hysteresis number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        ESP_LOGD(TAG, "Updated hysteresis number entity to %.1f°C", new_value);
         break;  // Only update each number entity once
       }
     }
@@ -1531,7 +1531,7 @@ void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_val
       if (siblings.count(member) > 0) {
         // This number entity controls at least one affected channel, update its UI
         num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated temp_low number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        ESP_LOGD(TAG, "Updated temp_low number entity to %.1f°C", new_value);
         break;  // Only update each number entity once
       }
     }
@@ -1572,7 +1572,7 @@ void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new
       if (siblings.count(member) > 0) {
         // This number entity controls at least one affected channel, update its UI
         num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated temp_high number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        ESP_LOGD(TAG, "Updated temp_high number entity to %.1f°C", new_value);
         break;  // Only update each number entity once
       }
     }
