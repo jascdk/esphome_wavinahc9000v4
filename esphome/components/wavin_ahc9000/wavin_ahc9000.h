@@ -286,11 +286,11 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY = 0x01;       // MODE=001: Permanent standby
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_ECO = 0x02;           // MODE=010: Permanent eco (or temp eco with SCHED_ENA=1)
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_COMFORT = 0x03;       // MODE=011: Permanent comfort (or temp comfort with SCHED_ENA=1)
-  static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY_ALT = 0x04;   // MODE=100: Party on manual (or with schedule)
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_PARTY = 0x04;         // MODE=100: Party on manual (or with schedule)
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_HOLIDAY = 0x05;       // MODE=101: Holiday on manual (or with schedule)
   
   static constexpr uint16_t PACKED_CONFIGURATION_SCHED_ENA_BIT = 0x0010;    // Bit 4: SCHED_ENA (schedule enable)
-  static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_MASK = 0x0010;     // Bit 4 only: clear SCHED_ENA for manual modes
+  static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_MASK = 0x0018;     // Bits 3-4: clear for safety (bit 4=SCHED_ENA per spec, bit 3=undefined but cleared for strict mode compatibility)
   static constexpr uint16_t PACKED_CONFIGURATION_STRICT_UNLOCK_MASK = 0x0078; // bits 3..6 (avoid touching mode bits 0..2)
   static constexpr uint16_t PACKED_CONFIGURATION_CHILD_LOCK_MASK = 0x0800; // Bit 11: child lock (0x4000->0x4800)
 

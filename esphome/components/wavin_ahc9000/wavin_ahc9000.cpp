@@ -94,7 +94,8 @@ void WavinAHC9000::update() {
     if (this->read_registers(CAT_PACKED, ch_page, PACKED_CONFIGURATION, 1, regs) && regs.size() >= 1) {
       uint16_t raw_cfg = regs[0];
       uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
-      bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) || (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY_ALT);
+      // Only MODE=001 is permanent standby per Wavin spec (treat as OFF in Home Assistant)
+      bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY);
       st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
       st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
       ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s child_lock=%s", (unsigned) ch, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", st.child_lock?"Y":"N");
@@ -195,7 +196,8 @@ void WavinAHC9000::update() {
           if (this->read_registers(CAT_PACKED, ch_page, PACKED_CONFIGURATION, 1, regs) && regs.size() >= 1) {
             uint16_t raw_cfg = regs[0];
             uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
-            bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) || (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY_ALT);
+            // Only MODE=001 is permanent standby per Wavin spec (treat as OFF in Home Assistant)
+            bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY);
             st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
             st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
             ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s child_lock=%s", ch_num, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", st.child_lock?"Y":"N");
@@ -927,7 +929,8 @@ void WavinAHC9000::generate_yaml_suggestion() {
         if (this->read_registers(CAT_PACKED, page, PACKED_CONFIGURATION, 1, regs) && regs.size() >= 1) {
           uint16_t raw_cfg = regs[0];
           uint16_t mode_bits = raw_cfg & PACKED_CONFIGURATION_MODE_MASK;
-          bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY) || (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY_ALT);
+          // Only MODE=001 is permanent standby per Wavin spec (treat as OFF in Home Assistant)
+          bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY);
           st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
           st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
         }
