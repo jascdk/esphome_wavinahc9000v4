@@ -152,6 +152,33 @@ Example JSON output:
 }
 ```
 
+### Using Channel Info in Home Assistant
+
+The `channel_info` text sensor provides all channel attributes in JSON format, which can be parsed in Home Assistant to create custom displays. Here's an example template sensor:
+
+```yaml
+# In your Home Assistant configuration.yaml
+template:
+  - sensor:
+      - name: "Living Room Details"
+        state: >
+          {% set info = states('sensor.living_room_info') | from_json %}
+          {{ info.temperature }}°C / {{ info.setpoint }}°C
+        attributes:
+          battery: >
+            {% set info = states('sensor.living_room_info') | from_json %}
+            {{ info.battery }}%
+          floor_temperature: >
+            {% set info = states('sensor.living_room_info') | from_json %}
+            {{ info.floor_temperature }}°C
+          child_lock: >
+            {% set info = states('sensor.living_room_info') | from_json %}
+            {{ info.child_lock }}
+          mode: >
+            {% set info = states('sensor.living_room_info') | from_json %}
+            {{ info.mode }}
+```
+
 ## Full Example
 
 See the [examples/full-example.yaml](examples/full-example.yaml) file for a comprehensive configuration with multiple zones, sensors, and controls.
