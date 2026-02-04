@@ -251,8 +251,8 @@ void WavinAHC9000::update() {
     if (this->read_registers(CAT_MAIN, 0, MAIN_CPU_TEMPERATURE, 1, regs) && regs.size() >= 1) {
       // Assume same scaling as other temperatures (0.1°C per unit)
       float cpu_temp_c = this->raw_to_c(regs[0]);
-      // Sanity check: CPU temps should be reasonable (0-100°C range)
-      if (cpu_temp_c >= 0.0f && cpu_temp_c <= 100.0f) {
+      // Sanity check: CPU temps should be reasonable
+      if (cpu_temp_c >= MIN_CPU_TEMP_C && cpu_temp_c <= MAX_CPU_TEMP_C) {
         this->cpu_temperature_sensor_->publish_state(cpu_temp_c);
         ESP_LOGD(TAG, "CPU Temperature: %.1f°C", cpu_temp_c);
       } else {

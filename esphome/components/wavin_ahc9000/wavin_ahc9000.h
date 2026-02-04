@@ -212,11 +212,11 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t FC_WRITE_MASKED = 0x45;
 
   // Categories & indices (from dkjonas repo)
-  static constexpr uint8_t CAT_CHANNELS = 0x03;
+  static constexpr uint8_t CAT_MAIN = 0x00;
   static constexpr uint8_t CAT_ELEMENTS = 0x01;
   static constexpr uint8_t CAT_PACKED = 0x02;
+  static constexpr uint8_t CAT_CHANNELS = 0x03;
   static constexpr uint8_t CAT_INFO = 0x07;
-  static constexpr uint8_t CAT_MAIN = 0x00;
 
   static constexpr uint8_t CH_TIMER_EVENT = 0x00; // status incl. output bit
   static constexpr uint16_t CH_TIMER_EVENT_OUTP_ON_MASK = 0x0010;
@@ -254,6 +254,9 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
 
   // Main category register indices (controller internal diagnostics)
   static constexpr uint8_t MAIN_CPU_TEMPERATURE = 0x12;
+  // Sanity check bounds for CPU temperature (in Celsius)
+  static constexpr float MIN_CPU_TEMP_C = 0.0f;
+  static constexpr float MAX_CPU_TEMP_C = 100.0f;
 
   // I/O reliability: number of attempts for read/write before escalating to WARN
   static constexpr uint8_t IO_RETRY_ATTEMPTS = 2; // first failure logged at DEBUG, final at WARN
