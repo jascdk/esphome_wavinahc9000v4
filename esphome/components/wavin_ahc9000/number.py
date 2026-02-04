@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import number
-from esphome.const import CONF_CHANNEL
+from esphome.const import CONF_CHANNEL, CONF_ID
 
 from . import WavinAHC9000, WavinZoneClimate, ns
 
@@ -25,7 +25,7 @@ CONFIG_SCHEMA = cv.All(
 
 async def to_code(config):
     hub = await cg.get_variable(config[CONF_PARENT_ID])
-    var = cg.new_Pvariable(config[cg.CONF_ID])
+    var = cg.new_Pvariable(config[CONF_ID])
     await number.register_number(var, config, min_value=0.1, max_value=1.0, step=0.1)
     await cg.register_component(var, config)
     
