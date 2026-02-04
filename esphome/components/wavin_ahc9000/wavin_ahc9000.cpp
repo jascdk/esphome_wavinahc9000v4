@@ -1,6 +1,7 @@
 #include "wavin_ahc9000.h"
 #include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
+#include "esphome/components/binary_sensor/binary_sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/time.h"
 #include "esphome/core/application.h"
@@ -115,6 +116,9 @@ void WavinAHC9000::update() {
     if (!st.all_tp_lost && st.primary_index > 0) {
       uint8_t elem_page = (uint8_t) (st.primary_index - 1);
       if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+        // Parse status register for thermostat connection status
+        st.thermostat_connected = this->parse_thermostat_connection_status(regs);
+        
         st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
         this->yaml_elem_read_mask_ |= (1u << (ch - 1));
         if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -216,6 +220,11 @@ void WavinAHC9000::update() {
           if (!st.all_tp_lost && st.primary_index > 0) {
             uint8_t elem_page = (uint8_t) (st.primary_index - 1);
             if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+              // Parse status register (index 0x00) for thermostat connection status
+              st.thermostat_connected = this->parse_thermostat_connection_status(regs);
+              ESP_LOGD(TAG, "CH%u status=0x%04X connected=%d", 
+                       ch_num, regs[ELEM_STATUS], st.thermostat_connected);
+              
               st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
               this->yaml_elem_read_mask_ |= (1u << (ch_num - 1));
               if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -876,6 +885,9 @@ void WavinAHC9000::generate_yaml_suggestion() {
         // Try to read elements block to surface air/floor temps and detect floor probe immediately
         uint8_t elem_page = (uint8_t) (primary_index - 1);
         if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+          // Parse status register for thermostat connection status
+          st.thermostat_connected = this->parse_thermostat_connection_status(regs);
+          
           st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
           this->yaml_elem_read_mask_ |= (1u << (ch - 1));
           if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -1354,6 +1366,17 @@ void WavinAHC9000::publish_updates() {
     auto it = this->channels_.find(ch);
     if (it != this->channels_.end()) {
       sw->publish_state(it->second.child_lock);
+    }
+  }
+
+  // Binary sensors - thermostat connection status
+  for (auto &kv : this->thermostat_connected_binary_sensors_) {
+    uint8_t ch = kv.first;
+    auto *bs = kv.second;
+    if (!bs) continue;
+    auto it = this->channels_.find(ch);
+    if (it != this->channels_.end()) {
+      bs->publish_state(it->second.thermostat_connected);
     }
   }
 

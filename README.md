@@ -10,6 +10,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
+- **Thermostat Connection Status**: Monitor if thermostats are connected and communicating
 - **Child Lock**: Control and monitor child lock status per zone
 - **Group Child Lock**: Create master switches that control child locks across multiple zones
 - **Device Information**: Read controller hardware/software version, address, and device name
@@ -151,6 +152,30 @@ sensor:
     type: average_temperature
     members: [1, 2, 3, 4]  # Average of channels 1-4
     name: "House Average Temperature"
+```
+
+### Binary Sensor Entity (`binary_sensor` platform)
+
+- **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
+- **channel** (*Required*): Channel number (1-16)
+- **type** (*Required*): Binary sensor type, currently:
+  - `thermostat_connected`: Connection status of the thermostat (uses device class `connectivity`)
+
+**Thermostat Connection Status**: The `thermostat_connected` binary sensor monitors whether a thermostat is connected and communicating with the controller. It reads the Status register (category ELEMENTS) as specified in the Modbus documentation. The sensor is ON when:
+- The ALIVE bit is set (valid packet received within ~25 minutes)
+- The LOST bit is NOT set (element is online)
+- The TP bit is set (element is a thermostat)
+
+This allows you to monitor connection issues with wireless thermostats and create automations to alert when a thermostat loses connection.
+
+Example:
+```yaml
+binary_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: thermostat_connected
+    name: "Living Room Thermostat Connected"
 ```
 
 ### Switch Entity (`switch` platform)

@@ -16,6 +16,7 @@ namespace esphome {
 namespace sensor { class Sensor; }
 namespace switch_ { class Switch; }
 namespace text_sensor { class TextSensor; }
+namespace binary_sensor { class BinarySensor; }
 namespace wavin_ahc9000 {
 
 // Forward
@@ -55,6 +56,9 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
   void add_active_channel(uint8_t ch);
+  
+  // Binary sensors
+  void add_channel_thermostat_connected_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s);
   
   // Device info text sensors
   void add_control_unit_address_text_sensor(text_sensor::TextSensor *s) { this->control_unit_address_text_sensor_ = s; }
@@ -145,6 +149,16 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     // Basic plausibility filter (0..100%) to avoid invalid readings
     return (humidity >= 0.0f && humidity <= 100.0f) ? humidity : NAN;
   }
+  // Parse thermostat connection status from element status register
+  bool parse_thermostat_connection_status(const std::vector<uint16_t> &regs) const {
+    if (regs.empty()) return false;
+    uint16_t status = regs[ELEM_STATUS];
+    bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
+    bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
+    bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
+    // Thermostat is connected if ALIVE bit is set AND LOST bit is not set AND it's a thermostat
+    return is_alive && !is_lost && is_thermostat;
+  }
 
   // Simple cache per channel
   struct ChannelState {
@@ -163,6 +177,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     bool all_tp_lost{false};
     bool has_floor_sensor{false};
     bool child_lock{false};
+    // Thermostat connection status from ELEM_STATUS register
+    bool thermostat_connected{false};
   };
 
   std::map<uint8_t, ChannelState> channels_;
@@ -176,6 +192,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> humidity_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
+  // Binary sensors
+  std::map<uint8_t, binary_sensor::BinarySensor *> thermostat_connected_binary_sensors_;
   // Average temperature sensors: sensor pointer -> list of member channels
   struct AverageTempSensor {
     sensor::Sensor *sensor;
@@ -238,10 +256,18 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint16_t CH_PRIMARY_ELEMENT_ELEMENT_MASK = 0x003f;
   static constexpr uint16_t CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK = 0x0400;
 
+  // ELEMENTS category register indices (per-element data)
+  static constexpr uint8_t ELEM_STATUS = 0x00; // Status register with ALIVE, LOST, TP, etc.
   static constexpr uint8_t ELEM_AIR_TEMPERATURE = 0x04; // index within block
   static constexpr uint8_t ELEM_FLOOR_TEMPERATURE = 0x05; // index for floor probe
   static constexpr uint8_t ELEM_BATTERY_STATUS = 0x0A;  // not used yet
   static constexpr uint8_t ELEM_HUMIDITY = 0x0B;  // humidity sensor (if available)
+  
+  // ELEM_STATUS bit masks (from Modbus documentation page 11)
+  static constexpr uint16_t ELEM_STATUS_ALIVE_MASK = 0x0001;  // Bit 0: ALIVE (1=online, 0=offline after ~25min)
+  static constexpr uint16_t ELEM_STATUS_LOST_MASK = 0x0002;   // Bit 1: LOST (1=element not alive)
+  static constexpr uint16_t ELEM_STATUS_TP_MASK = 0x0400;     // Bit 10: TP (1=element is thermostat)
+  static constexpr uint16_t ELEM_STATUS_TP_ACT_MASK = 0x0800; // Bit 11: TP ACT (thermostat output active)
 
   static constexpr uint8_t PACKED_MANUAL_TEMPERATURE = 0x00;
   static constexpr uint8_t PACKED_STANDBY_TEMPERATURE = 0x04;
@@ -342,6 +368,10 @@ inline void WavinAHC9000::add_channel_floor_max_temperature_sensor(uint8_t ch, s
 
 inline void WavinAHC9000::add_channel_humidity_sensor(uint8_t ch, sensor::Sensor *s) {
   this->humidity_sensors_[ch] = s;
+}
+
+inline void WavinAHC9000::add_channel_thermostat_connected_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s) {
+  this->thermostat_connected_binary_sensors_[ch] = s;
 }
 
 class WavinZoneClimate : public climate::Climate, public Component {
