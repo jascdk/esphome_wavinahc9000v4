@@ -157,10 +157,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     if (regs.empty()) return false;
     uint16_t status = regs[ELEM_STATUS];
     bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-    bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
     bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
-    // Thermostat is connected if ALIVE bit is set AND LOST bit is not set AND it's a thermostat
-    return is_alive && !is_lost && is_thermostat;
+    // Thermostat is connected if ALIVE bit is set AND it's a thermostat
+    // Note: LOST bit check removed as it may not be reliable - ALIVE is the authoritative indicator
+    return is_alive && is_thermostat;
   }
 
   // Simple cache per channel
