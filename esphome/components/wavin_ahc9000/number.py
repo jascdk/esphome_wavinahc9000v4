@@ -58,17 +58,20 @@ async def to_code(config):
     hub = await cg.get_variable(config[CONF_PARENT_ID])
     num_type = config[CONF_TYPE]
     
-    # Create the appropriate number entity based on type by re-declaring the ID with correct class
+    # Create the appropriate number entity based on type.
+    # The schema uses WavinHysteresisNumber as the base class, but we override
+    # the type for temp_low and temp_high using Pvariable with type_ parameter.
+    # This allows us to have a single schema while supporting multiple types.
     if num_type == "hysteresis":
         # Already correct type from schema
         var = cg.new_Pvariable(config[CONF_ID])
         await number.register_number(var, config, min_value=0.1, max_value=2.0, step=0.1)
     elif num_type == "temp_low":
-        # Override ID to use WavinTempLowNumber
+        # Override ID type to WavinTempLowNumber
         var = cg.Pvariable(config[CONF_ID], cg.nullptr, type_=WavinTempLowNumber)
         await number.register_number(var, config, min_value=6.0, max_value=40.0, step=0.5)
     elif num_type == "temp_high":
-        # Override ID to use WavinTempHighNumber
+        # Override ID type to WavinTempHighNumber
         var = cg.Pvariable(config[CONF_ID], cg.nullptr, type_=WavinTempHighNumber)
         await number.register_number(var, config, min_value=6.0, max_value=40.0, step=0.5)
     

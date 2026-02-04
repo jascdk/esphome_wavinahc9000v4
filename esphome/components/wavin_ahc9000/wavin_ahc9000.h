@@ -559,7 +559,7 @@ class WavinTempLowNumber : public number::Number, public Component {
       ESP_LOGD("wavin_ahc9000.number", "Restored temp_low (eco): %.1f°C", value);
     } else {
       // First boot or no saved value - use default
-      float current = 18.0f;  // default eco temperature
+      float current = DEFAULT_ECO_TEMP;
       this->publish_state(current);
       this->pref_.save(&current);
       this->write_to_thermostat(current);
@@ -586,6 +586,7 @@ class WavinTempLowNumber : public number::Number, public Component {
     }
   }
 
+  static constexpr float DEFAULT_ECO_TEMP = 18.0f;
   WavinAHC9000 *parent_{nullptr};
   std::vector<uint8_t> members_{};
   ESPPreferenceObject pref_;
@@ -611,7 +612,7 @@ class WavinTempHighNumber : public number::Number, public Component {
       ESP_LOGD("wavin_ahc9000.number", "Restored temp_high (comfort): %.1f°C", value);
     } else {
       // First boot or no saved value - use default
-      float current = 22.0f;  // default comfort temperature
+      float current = DEFAULT_COMFORT_TEMP;
       this->publish_state(current);
       this->pref_.save(&current);
       this->write_to_thermostat(current);
@@ -638,6 +639,7 @@ class WavinTempHighNumber : public number::Number, public Component {
     }
   }
 
+  static constexpr float DEFAULT_COMFORT_TEMP = 22.0f;
   WavinAHC9000 *parent_{nullptr};
   std::vector<uint8_t> members_{};
   ESPPreferenceObject pref_;
