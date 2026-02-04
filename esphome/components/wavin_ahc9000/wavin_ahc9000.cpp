@@ -229,11 +229,12 @@ void WavinAHC9000::update() {
               if (it_ft != this->floor_temperature_sensors_.end() && it_ft->second != nullptr && !std::isnan(st.floor_temp_c)) {
                 it_ft->second->publish_state(st.floor_temp_c);
               }
-              // Battery status if available (0..10 scale)
+              // Battery status if available (0..9 scale, where 9=100%)
               if (regs.size() > ELEM_BATTERY_STATUS) {
                 uint16_t raw = regs[ELEM_BATTERY_STATUS];
-                uint8_t steps = (raw > 10) ? 10 : (uint8_t) raw;
-                uint8_t pct = (uint8_t) (steps * 10);
+                uint8_t steps = (raw > 9) ? 9 : (uint8_t) raw;
+                // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9
+                uint8_t pct = (uint8_t) ((steps * 100 + 4) / 9);  // +4 for rounding
                 st.battery_pct = pct;
                 auto it = this->battery_sensors_.find(ch_num);
                 if (it != this->battery_sensors_.end() && it->second != nullptr) {
@@ -865,11 +866,12 @@ void WavinAHC9000::generate_yaml_suggestion() {
               st.floor_temp_c = NAN;
             }
           }
-          // Battery (optional)
+          // Battery (optional, 0-9 scale where 9=100%)
           if (regs.size() > ELEM_BATTERY_STATUS) {
             uint16_t raw = regs[ELEM_BATTERY_STATUS];
-            uint8_t steps = (raw > 10) ? 10 : (uint8_t) raw;
-            st.battery_pct = (uint8_t) (steps * 10);
+            uint8_t steps = (raw > 9) ? 9 : (uint8_t) raw;
+            // Map 0-9 scale to 0-100%: pct = (steps * 100) / 9
+            st.battery_pct = (uint8_t) ((steps * 100 + 4) / 9);  // +4 for rounding
           }
         }
       }
