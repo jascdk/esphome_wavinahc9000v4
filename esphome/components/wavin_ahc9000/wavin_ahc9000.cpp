@@ -128,12 +128,8 @@ void WavinAHC9000::update() {
           }
         }
         if (regs.size() > ELEM_HUMIDITY) {
-          uint16_t raw_humidity = regs[ELEM_HUMIDITY];
-          // Humidity is typically 0-100%, using same divisor as temperature (10.0)
-          // or might be 0-1000 representing 0-100.0%
-          float humidity = this->raw_to_c(raw_humidity);
-          // Basic plausibility filter (0..100%) to avoid invalid readings
-          if (humidity >= 0.0f && humidity <= 100.0f) {
+          float humidity = this->parse_humidity(regs[ELEM_HUMIDITY]);
+          if (!std::isnan(humidity)) {
             st.humidity_pct = humidity;
             ESP_LOGD(TAG, "CH%u humidity=%.1f%%", (unsigned) ch, humidity);
           } else {
@@ -244,9 +240,8 @@ void WavinAHC9000::update() {
               }
               // Humidity sensor publish if configured
               if (regs.size() > ELEM_HUMIDITY) {
-                uint16_t raw_humidity = regs[ELEM_HUMIDITY];
-                float humidity = this->raw_to_c(raw_humidity);
-                if (humidity >= 0.0f && humidity <= 100.0f) {
+                float humidity = this->parse_humidity(regs[ELEM_HUMIDITY]);
+                if (!std::isnan(humidity)) {
                   st.humidity_pct = humidity;
                   ESP_LOGD(TAG, "CH%u humidity=%.1f%%", ch_num, humidity);
                   auto it_h = this->humidity_sensors_.find(ch_num);
@@ -896,13 +891,7 @@ void WavinAHC9000::generate_yaml_suggestion() {
           }
           // Humidity (optional)
           if (regs.size() > ELEM_HUMIDITY) {
-            uint16_t raw_humidity = regs[ELEM_HUMIDITY];
-            float humidity = this->raw_to_c(raw_humidity);
-            if (humidity >= 0.0f && humidity <= 100.0f) {
-              st.humidity_pct = humidity;
-            } else {
-              st.humidity_pct = NAN;
-            }
+            st.humidity_pct = this->parse_humidity(regs[ELEM_HUMIDITY]);
           }
           // Battery (optional, 0-9 scale where 9=100%)
           if (regs.size() > ELEM_BATTERY_STATUS) {

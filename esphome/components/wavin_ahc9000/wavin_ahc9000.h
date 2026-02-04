@@ -139,6 +139,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // Helpers
   float raw_to_c(float raw) const { return raw / this->temp_divisor_; }
   uint16_t c_to_raw(float c) const { return static_cast<uint16_t>(c * this->temp_divisor_ + 0.5f); }
+  // Parse humidity from raw register value with plausibility check
+  float parse_humidity(uint16_t raw_value) const {
+    float humidity = this->raw_to_c(raw_value);
+    // Basic plausibility filter (0..100%) to avoid invalid readings
+    return (humidity >= 0.0f && humidity <= 100.0f) ? humidity : NAN;
+  }
 
   // Simple cache per channel
   struct ChannelState {
