@@ -3,6 +3,7 @@
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
 #include "esphome/core/time.h"
+#include "esphome/core/application.h"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -321,17 +322,21 @@ bool WavinAHC9000::sync_clock_now() {
   // Second (0-59)
   clock_values.push_back(now.second);
 
+  // Day of week string lookup (ESPHome: 1=Sunday, 2=Monday, ..., 7=Saturday)
+  static const char* days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  const char* day_str = (now.day_of_week >= 1 && now.day_of_week <= 7) ? days[now.day_of_week] : "?";
+
   ESP_LOGI(TAG, "Syncing clock: %04u-%02u-%02u %s %02u:%02u:%02u", 
            (unsigned) year, (unsigned) now.month, (unsigned) now.day_of_month,
-           (now.day_of_week == 1 ? "Sun" : now.day_of_week == 2 ? "Mon" : now.day_of_week == 3 ? "Tue" : 
-            now.day_of_week == 4 ? "Wed" : now.day_of_week == 5 ? "Thu" : now.day_of_week == 6 ? "Fri" : "Sat"),
-           (unsigned) now.hour, (unsigned) now.minute, (unsigned) now.second);
+           day_str, (unsigned) now.hour, (unsigned) now.minute, (unsigned) now.second);
 
   bool success = this->write_clock_registers(clock_values);
   if (success) {
     this->last_clock_sync_ = millis();
     this->clock_synced_once_ = true;
-    ESP_LOGI(TAG, "Clock synchronized successfully");
+    ESP_LOGI(TAG, "Clock synchronized successfully to %04u-%02u-%02u %02u:%02u:%02u",
+             (unsigned) year, (unsigned) now.month, (unsigned) now.day_of_month,
+             (unsigned) now.hour, (unsigned) now.minute, (unsigned) now.second);
   } else {
     ESP_LOGW(TAG, "Failed to synchronize clock");
   }
