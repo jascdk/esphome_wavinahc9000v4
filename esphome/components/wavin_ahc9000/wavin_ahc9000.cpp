@@ -291,11 +291,16 @@ void WavinAHC9000::add_active_channel(uint8_t ch) {
 void WavinAHC9000::add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members) {
   AverageTempSensor avg_sensor;
   avg_sensor.sensor = s;
-  // Convert int vector to uint8_t vector
+  // Convert int vector to uint8_t vector, warning about invalid channels
   for (int m : members) {
     if (m >= 1 && m <= 16) {
       avg_sensor.members.push_back(static_cast<uint8_t>(m));
+    } else {
+      ESP_LOGW(TAG, "Average temperature sensor: ignoring invalid channel %d (must be 1-16)", m);
     }
+  }
+  if (avg_sensor.members.empty()) {
+    ESP_LOGW(TAG, "Average temperature sensor has no valid member channels");
   }
   this->average_temperature_sensors_.push_back(avg_sensor);
 }
@@ -1161,7 +1166,7 @@ void WavinAHC9000::publish_updates() {
   // Average temperature sensors
   for (auto &avg_sensor : this->average_temperature_sensors_) {
     if (!avg_sensor.sensor) continue;
-    float sum = 0.0f;
+    double sum = 0.0;  // Use double for better precision in intermediate calculations
     uint8_t valid_count = 0;
     // Calculate average of member channel temperatures
     for (uint8_t ch : avg_sensor.members) {
@@ -1176,7 +1181,7 @@ void WavinAHC9000::publish_updates() {
     }
     // Publish average if we have valid temperatures, otherwise publish NaN
     if (valid_count > 0) {
-      float average = sum / valid_count;
+      float average = static_cast<float>(sum / valid_count);
       avg_sensor.sensor->publish_state(average);
     } else {
       // No valid temperatures available; publish NaN to indicate no data
