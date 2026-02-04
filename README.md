@@ -278,7 +278,7 @@ number:
     type: temp_low
     members: [1, 2, 3, 4]
     name: "Eco Temperature"
-    entity_category: config
+    # entity_category: config  # Optional: Uncomment to hide from main UI (appears only in device settings)
   
   # Comfort temperature for channels 1-4
   - platform: wavin_ahc9000
@@ -286,8 +286,16 @@ number:
     type: temp_high
     members: [1, 2, 3, 4]
     name: "Comfort Temperature"
-    entity_category: config
+    # entity_category: config  # Optional: Uncomment to hide from main UI (appears only in device settings)
 ```
+
+**⚠️ Important - Entity Visibility in Home Assistant**:
+- **Without `entity_category: config`** - Entities appear in the main Home Assistant UI (dashboards, entity lists)
+- **With `entity_category: config`** - Entities are hidden from the main UI and only accessible via:
+  - Settings → Devices & Services → ESPHome → [Your Device] → Configure
+  - Or by searching for the entity name in entity settings
+
+**Recommendation**: For easy access, **omit** `entity_category: config` so the temperature controls appear in your dashboards. Add it only if you want to hide them from the main UI.
 
 **With Bi-Directional Sync**: When `sync_group_settings: true` is enabled, changes made directly on physical thermostats will be detected and:
 1. Reflected in the Home Assistant UI
@@ -414,6 +422,29 @@ See the [examples/full-example.yaml](examples/full-example.yaml) file for a comp
 - Some zones may take time to report all values
 - Floor temperature sensors may not be installed on all zones
 - Battery levels are only available for wireless thermostats
+
+### Temperature Controls (temp_low/temp_high) Not Visible in UI
+
+If you've configured `temp_low` (Eco) and `temp_high` (Comfort) number entities but can't see them in Home Assistant:
+
+1. **Check if `entity_category: config` is set**: This setting hides entities from the main UI
+   - Remove `entity_category: config` from your YAML to make them visible in dashboards
+   - Or find them in: Settings → Devices & Services → ESPHome → [Your Device] → Configure
+
+2. **Verify configuration is correct**: Make sure you have:
+   ```yaml
+   number:
+     - platform: wavin_ahc9000
+       wavin_ahc9000_id: wavin_controller
+       type: temp_low  # or temp_high
+       members: [1, 2, 3, 4]  # Required: list of channels
+       name: "Eco Temperature"
+       # entity_category: config  # Remove this line to show in main UI
+   ```
+
+3. **Restart required**: After changing YAML configuration:
+   - Recompile and upload the ESPHome firmware
+   - Restart Home Assistant if entities still don't appear
 
 ## Credits
 
