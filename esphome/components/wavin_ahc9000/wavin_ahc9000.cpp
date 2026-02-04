@@ -864,6 +864,40 @@ void WavinAHC9000::write_channel_hysteresis(uint8_t channel, float celsius) {
   }
 }
 
+void WavinAHC9000::write_channel_comfort_temperature(uint8_t channel, float celsius) {
+  if (channel < 1 || channel > 16) return;
+  // Clamp to range 6-40°C as specified
+  if (celsius < 6.0f) celsius = 6.0f;
+  if (celsius > 40.0f) celsius = 40.0f;
+  uint8_t page = (uint8_t) (channel - 1);
+  uint16_t raw = this->c_to_raw(celsius);
+  if (this->write_register(CAT_PACKED, page, PACKED_COMFORT_TEMPERATURE, raw)) {
+    ESP_LOGI(TAG, "Comfort temperature written to thermostat: ch=%u value=%.1f°C (raw=0x%04X)", 
+             (unsigned) channel, celsius, (unsigned) raw);
+    this->urgent_channels_.push_back(channel);
+    this->suspend_polling_until_ = millis() + 100;
+  } else {
+    ESP_LOGW(TAG, "Failed to write comfort temperature to thermostat: ch=%u", (unsigned) channel);
+  }
+}
+
+void WavinAHC9000::write_channel_eco_temperature(uint8_t channel, float celsius) {
+  if (channel < 1 || channel > 16) return;
+  // Clamp to range 6-40°C as specified
+  if (celsius < 6.0f) celsius = 6.0f;
+  if (celsius > 40.0f) celsius = 40.0f;
+  uint8_t page = (uint8_t) (channel - 1);
+  uint16_t raw = this->c_to_raw(celsius);
+  if (this->write_register(CAT_PACKED, page, PACKED_ECO_TEMPERATURE, raw)) {
+    ESP_LOGI(TAG, "Eco temperature written to thermostat: ch=%u value=%.1f°C (raw=0x%04X)", 
+             (unsigned) channel, celsius, (unsigned) raw);
+    this->urgent_channels_.push_back(channel);
+    this->suspend_polling_until_ = millis() + 100;
+  } else {
+    ESP_LOGW(TAG, "Failed to write eco temperature to thermostat: ch=%u", (unsigned) channel);
+  }
+}
+
 void WavinAHC9000::set_strict_mode_write(uint8_t channel, bool enable) {
   if (channel < 1 || channel > 16) return;
   if (enable) this->strict_mode_channels_.insert(channel);
