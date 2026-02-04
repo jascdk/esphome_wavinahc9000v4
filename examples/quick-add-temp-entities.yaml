@@ -1,0 +1,39 @@
+# Quick Add: temp_low and temp_high Number Entities
+# Copy and paste this into your existing ESPHome configuration
+
+# Add to your existing number: section (or create one if you don't have it)
+number:
+  # Temperature Low (Eco mode) - adjust the members list to match your channels
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller  # Make sure this matches your wavin_ahc9000 id
+    type: temp_low
+    members: [1, 2, 3, 4]  # List the channels you want to control
+    name: "Eco Temperature"
+    entity_category: config  # Shows under "Configuration" in Home Assistant
+  
+  # Temperature High (Comfort mode) - adjust the members list to match your channels
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller  # Make sure this matches your wavin_ahc9000 id
+    type: temp_high
+    members: [1, 2, 3, 4]  # List the channels you want to control
+    name: "Comfort Temperature"
+    entity_category: config  # Shows under "Configuration" in Home Assistant
+
+# After adding these:
+# 1. Save your YAML file
+# 2. Compile and upload to your ESP32
+# 3. The entities will appear in Home Assistant under the device's Configuration section
+# 4. Default values: Eco=18°C, Comfort=22°C
+# 5. Range: 6-40°C with 0.5°C steps
+
+# Optional: Enable bi-directional sync (add this to your wavin_ahc9000: section)
+# wavin_ahc9000:
+#   id: wavin_controller
+#   uart_id: uart_bus
+#   sync_group_settings: true  # <-- Add this line to enable bi-directional sync
+#   # ... rest of your config
+
+# With sync_group_settings enabled:
+# - Changes made on physical thermostats will be detected
+# - Home Assistant UI will update automatically
+# - All channels in the members list will stay synchronized
