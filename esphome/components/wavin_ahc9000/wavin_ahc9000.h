@@ -58,7 +58,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // Average temperature sensor with member channels
   void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
-  void add_channel_standby_switch(uint8_t ch, switch_::Switch *s) { this->standby_switches_[ch] = s; }
   void add_active_channel(uint8_t ch);
   
   // Device info text sensors
@@ -188,7 +187,6 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> humidity_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
-  std::map<uint8_t, switch_::Switch *> standby_switches_;
   // Average temperature sensors: sensor pointer -> list of member channels
   struct AverageTempSensor {
     sensor::Sensor *sensor;
@@ -343,40 +341,6 @@ class WavinChildLockSwitch : public switch_::Switch {
       } else if (this->channel_ != 0) {
         // Single channel switch
         this->parent_->write_channel_child_lock(this->channel_, state);
-      }
-    }
-    // Optimistic publish; hub publish_updates() will correct after refresh.
-    this->publish_state(state);
-  }
-  WavinAHC9000 *parent_{nullptr};
-  uint8_t channel_{0};
-  std::vector<uint8_t> members_{};
-};
-
-// Simple dedicated switch subclass for standby mode control
-// ON = standby mode (climate OFF), OFF = heating mode (climate HEAT)
-// Similar to child lock switch but controls the climate mode instead
-class WavinStandbySwitch : public switch_::Switch {
- public:
-  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
-  void set_channel(uint8_t ch) { this->channel_ = ch; }
-  void set_members(const std::vector<int> &members) {
-    this->members_.clear();
-    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
-  }
- protected:
-  void write_state(bool state) override {
-    if (this->parent_ != nullptr) {
-      // state = true means standby (OFF mode), state = false means heat (HEAT mode)
-      climate::ClimateMode mode = state ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
-      if (!this->members_.empty()) {
-        // Group switch: write to all members
-        for (auto ch : this->members_) {
-          this->parent_->write_channel_mode(ch, mode);
-        }
-      } else if (this->channel_ != 0) {
-        // Single channel switch
-        this->parent_->write_channel_mode(this->channel_, mode);
       }
     }
     // Optimistic publish; hub publish_updates() will correct after refresh.
