@@ -426,6 +426,10 @@ class WavinHysteresisNumber : public number::Number, public Component {
  public:
   void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
   void set_climate(WavinZoneClimate *c) { this->climate_ = c; }
+  void set_members(const std::vector<int> &members) {
+    this->members_.clear();
+    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
+  }
   
   void setup() override {
     // Load persisted value from flash
@@ -441,16 +445,17 @@ class WavinHysteresisNumber : public number::Number, public Component {
       this->publish_state(value);
       ESP_LOGD("wavin_ahc9000.number", "Restored hysteresis: %.1f°C", value);
     } else {
-      // First boot or no saved value - use current climate hysteresis value
+      // First boot or no saved value - use default or climate's value
+      float current = 0.3f;  // default hysteresis
       if (this->climate_ != nullptr) {
-        float current = this->climate_->get_hysteresis();
-        this->publish_state(current);
-        // Save the default value
-        this->pref_.save(&current);
-        // Write to thermostat
-        this->write_to_thermostat(current);
-        ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
+        current = this->climate_->get_hysteresis();
       }
+      this->publish_state(current);
+      // Save the default value
+      this->pref_.save(&current);
+      // Write to thermostat
+      this->write_to_thermostat(current);
+      ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
     }
   }
 
@@ -459,21 +464,36 @@ class WavinHysteresisNumber : public number::Number, public Component {
     // Update the climate entity's hysteresis when value changes
     if (this->climate_ != nullptr) {
       this->climate_->set_hysteresis(value);
-      this->publish_state(value);
-      // Save to flash for persistence across restarts
-      this->pref_.save(&value);
-      ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
-      // Write to physical thermostat
-      this->write_to_thermostat(value);
     }
+    this->publish_state(value);
+    // Save to flash for persistence across restarts
+    this->pref_.save(&value);
+    ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
+    // Write to physical thermostat
+    this->write_to_thermostat(value);
   }
 
   void write_to_thermostat(float value) {
-    // Write hysteresis to all channels controlled by this climate entity
-    if (this->parent_ == nullptr || this->climate_ == nullptr) return;
+    // Write hysteresis to channels - either from climate entity or direct members list
+    if (this->parent_ == nullptr) return;
     
     // Track which channels we've written to (to avoid duplicates)
     std::set<uint8_t> written_channels;
+    
+    // If we have direct members (not tied to a climate), use those
+    if (!this->members_.empty()) {
+      ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to %zu channel(s)", value, this->members_.size());
+      for (uint8_t ch : this->members_) {
+        if (written_channels.find(ch) == written_channels.end()) {
+          this->parent_->write_channel_hysteresis(ch, value);
+          written_channels.insert(ch);
+        }
+      }
+      return;
+    }
+    
+    // Otherwise, use climate entity if available
+    if (this->climate_ == nullptr) return;
     
     // Get the channel(s) from the climate entity
     if (this->climate_->is_single_channel()) {
@@ -515,6 +535,7 @@ class WavinHysteresisNumber : public number::Number, public Component {
 
   WavinAHC9000 *parent_{nullptr};
   WavinZoneClimate *climate_{nullptr};
+  std::vector<uint8_t> members_{};  // Direct channel list (alternative to climate_)
   ESPPreferenceObject pref_;
 };
 
