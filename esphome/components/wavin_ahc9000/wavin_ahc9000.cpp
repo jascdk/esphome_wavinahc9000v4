@@ -117,13 +117,7 @@ void WavinAHC9000::update() {
       uint8_t elem_page = (uint8_t) (st.primary_index - 1);
       if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
         // Parse status register for thermostat connection status
-        if (regs.size() > ELEM_STATUS) {
-          uint16_t status = regs[ELEM_STATUS];
-          bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-          bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
-          bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
-          st.thermostat_connected = is_alive && !is_lost && is_thermostat;
-        }
+        st.thermostat_connected = this->parse_thermostat_connection_status(regs);
         
         st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
         this->yaml_elem_read_mask_ |= (1u << (ch - 1));
@@ -227,15 +221,10 @@ void WavinAHC9000::update() {
             uint8_t elem_page = (uint8_t) (st.primary_index - 1);
             if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
               // Parse status register (index 0x00) for thermostat connection status
+              st.thermostat_connected = this->parse_thermostat_connection_status(regs);
               if (regs.size() > ELEM_STATUS) {
-                uint16_t status = regs[ELEM_STATUS];
-                bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-                bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
-                bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
-                // Thermostat is connected if ALIVE bit is set AND LOST bit is not set AND it's a thermostat
-                st.thermostat_connected = is_alive && !is_lost && is_thermostat;
-                ESP_LOGD(TAG, "CH%u status=0x%04X alive=%d lost=%d tp=%d connected=%d", 
-                         ch_num, status, is_alive, is_lost, is_thermostat, st.thermostat_connected);
+                ESP_LOGD(TAG, "CH%u status=0x%04X connected=%d", 
+                         ch_num, regs[ELEM_STATUS], st.thermostat_connected);
               }
               
               st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
@@ -899,13 +888,7 @@ void WavinAHC9000::generate_yaml_suggestion() {
         uint8_t elem_page = (uint8_t) (primary_index - 1);
         if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
           // Parse status register for thermostat connection status
-          if (regs.size() > ELEM_STATUS) {
-            uint16_t status = regs[ELEM_STATUS];
-            bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-            bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
-            bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
-            st.thermostat_connected = is_alive && !is_lost && is_thermostat;
-          }
+          st.thermostat_connected = this->parse_thermostat_connection_status(regs);
           
           st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
           this->yaml_elem_read_mask_ |= (1u << (ch - 1));

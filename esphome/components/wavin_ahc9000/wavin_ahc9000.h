@@ -149,6 +149,16 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     // Basic plausibility filter (0..100%) to avoid invalid readings
     return (humidity >= 0.0f && humidity <= 100.0f) ? humidity : NAN;
   }
+  // Parse thermostat connection status from element status register
+  bool parse_thermostat_connection_status(const std::vector<uint16_t> &regs) const {
+    if (regs.size() <= ELEM_STATUS) return false;
+    uint16_t status = regs[ELEM_STATUS];
+    bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
+    bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
+    bool is_thermostat = (status & ELEM_STATUS_TP_MASK) != 0;
+    // Thermostat is connected if ALIVE bit is set AND LOST bit is not set AND it's a thermostat
+    return is_alive && !is_lost && is_thermostat;
+  }
 
   // Simple cache per channel
   struct ChannelState {

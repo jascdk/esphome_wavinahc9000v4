@@ -11,7 +11,9 @@ CONF_PARENT_ID = "wavin_ahc9000_id"
 CONF_CHANNEL = "channel"
 CONF_TYPE = "type"
 
-CONFIG_SCHEMA = binary_sensor.binary_sensor_schema().extend(
+CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(
+    device_class=DEVICE_CLASS_CONNECTIVITY
+).extend(
     {
         cv.GenerateID(CONF_PARENT_ID): cv.use_id(WavinAHC9000),
         cv.Required(CONF_CHANNEL): cv.int_range(min=1, max=16),
@@ -28,6 +30,5 @@ async def to_code(config):
     sens = await binary_sensor.new_binary_sensor(config)
     
     if config[CONF_TYPE] == "thermostat_connected":
-        cg.add(sens.set_device_class(DEVICE_CLASS_CONNECTIVITY))
         cg.add(hub.add_channel_thermostat_connected_binary_sensor(config[CONF_CHANNEL], sens))
         cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
