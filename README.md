@@ -241,6 +241,7 @@ number:
 ### Switch Entity (`switch` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
+- **type** (*Optional*, default: `child_lock`): Switch type, currently only `child_lock` is supported
 - **channel** (*Optional*): Single channel number (1-16)
 - **members** (*Optional*): List of channel numbers for group control
 
@@ -261,9 +262,10 @@ switch:
     channel: 3
     name: "Zone 3 Lock"
   
-  # Group child lock controlling multiple zones
+  # Group child lock controlling multiple zones (explicit type)
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
+    type: child_lock
     members: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     name: "Master Lock"
 ```
