@@ -181,6 +181,26 @@ void WavinAHC9000::update() {
             st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
             st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
             ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s child_lock=%s", ch_num, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", st.child_lock?"Y":"N");
+            // Reconcile desired mode if pending and mismatch (same logic as urgent refresh)
+            auto it_des = this->desired_mode_.find(ch_num);
+            if (it_des != this->desired_mode_.end()) {
+              auto want = it_des->second;
+              if (want != st.mode) {
+                uint16_t current = raw_cfg;
+                // Enforce standard OFF bits or MANUAL
+                uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
+                uint16_t next = (uint16_t) ((current & ~PACKED_CONFIGURATION_MODE_MASK) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+                ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X", (unsigned) ch_num, (unsigned) current, (unsigned) next);
+                if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
+                  // Schedule another quick check
+                  this->urgent_channels_.push_back(ch_num);
+                  this->suspend_polling_until_ = millis() + 100;
+                }
+              } else {
+                // Achieved desired mode; clear desire
+                this->desired_mode_.erase(it_des);
+              }
+            }
           } else {
             ESP_LOGW(TAG, "CH%u: mode read failed", ch_num);
           }
