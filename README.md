@@ -93,6 +93,25 @@ climate:
 - **poll_channels_per_cycle** (*Optional*, default: `2`): Number of channels to poll per cycle
 - **allow_mode_writes** (*Optional*, default: `true`): Allow climate mode changes
 - **channel_XX_friendly_name** (*Optional*): Friendly name for channel XX (01-16)
+- **time_id** (*Optional*): ID of the ESPHome time component to use for clock synchronization
+- **sync_clock_on_connect** (*Optional*, default: `false`): Sync controller clock on connect
+- **clock_sync_interval** (*Optional*): Periodic clock sync interval (e.g., `1h`, `24h`)
+
+**Clock Synchronization**: The Wavin AHC-9000 controller has an internal clock that can be programmed via Modbus. You can synchronize this clock with Home Assistant's time by configuring a time component (e.g., `homeassistant` or `sntp`) and enabling clock sync. The clock is written atomically (all 7 registers at once) to prevent inconsistencies.
+
+Example:
+```yaml
+time:
+  - platform: homeassistant
+    id: ha_time
+
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  time_id: ha_time
+  sync_clock_on_connect: true
+  clock_sync_interval: 24h
+```
 
 ### Climate Entity (`climate` platform)
 
