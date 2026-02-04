@@ -28,14 +28,16 @@ wifi:
   
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
-    ssid: "${friendly_name} Hotspot"
+    ssid: "Wavin Temp Control"
     password: "fallback123"
 
 captive_portal:
 
-# Load the custom component from GitHub
+# Load the custom component from local directory for testing
 external_components:
-  - source: github://jascdk/esphome_wavinahc9000v4
+  - source: 
+      type: local
+      path: ../esphome/components
     components: [wavin_ahc9000]
 
 # Configure UART for RS485 communication
@@ -51,8 +53,7 @@ wavin_ahc9000:
   id: wavin_controller
   uart_id: uart_bus
   update_interval: 5s
-  tx_enable_pin: GPIO5
-  flow_control_pin: GPIO5
+  flow_control_pin: GPIO5  # DE/RE pins tied together on most RS485 modules
 
 # ----------------------
 # Climate Entities
