@@ -121,6 +121,25 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     if (it == this->channels_.end()) return false;
     return it->second.child_lock;
   }
+  
+  // Get all sibling channels (other members of the same groups as the given channel)
+  std::set<uint8_t> get_group_sibling_channels(uint8_t ch) const {
+    std::set<uint8_t> siblings;
+    auto it = this->channel_to_groups_.find(ch);
+    if (it != this->channel_to_groups_.end()) {
+      // Found groups containing this channel
+      for (const auto *group : it->second) {
+        // Add all members of this group to siblings set
+        const auto &members = group->get_members();
+        for (uint8_t member : members) {
+          if (member != ch) {  // Don't include the channel itself
+            siblings.insert(member);
+          }
+        }
+      }
+    }
+    return siblings;
+  }
 
   // Data access
   float get_channel_current_temp(uint8_t channel) const;
@@ -174,6 +193,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, ChannelState> channels_;
   std::vector<WavinZoneClimate *> single_ch_climates_;
   std::vector<WavinZoneClimate *> group_climates_;
+  // Mapping from channel number to list of group climates that contain it
+  std::map<uint8_t, std::vector<WavinZoneClimate *>> channel_to_groups_;
   std::map<uint8_t, sensor::Sensor *> battery_sensors_;
   std::map<uint8_t, sensor::Sensor *> temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> floor_temperature_sensors_;
@@ -405,6 +426,10 @@ class WavinHysteresisNumber : public number::Number, public Component {
  public:
   void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
   void set_climate(WavinZoneClimate *c) { this->climate_ = c; }
+  void set_members(const std::vector<int> &members) {
+    this->members_.clear();
+    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
+  }
   
   void setup() override {
     // Load persisted value from flash
@@ -420,16 +445,17 @@ class WavinHysteresisNumber : public number::Number, public Component {
       this->publish_state(value);
       ESP_LOGD("wavin_ahc9000.number", "Restored hysteresis: %.1f°C", value);
     } else {
-      // First boot or no saved value - use current climate hysteresis value
+      // First boot or no saved value - use default or climate's value
+      float current = 0.3f;  // default hysteresis
       if (this->climate_ != nullptr) {
-        float current = this->climate_->get_hysteresis();
-        this->publish_state(current);
-        // Save the default value
-        this->pref_.save(&current);
-        // Write to thermostat
-        this->write_to_thermostat(current);
-        ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
+        current = this->climate_->get_hysteresis();
       }
+      this->publish_state(current);
+      // Save the default value
+      this->pref_.save(&current);
+      // Write to thermostat
+      this->write_to_thermostat(current);
+      ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
     }
   }
 
@@ -438,36 +464,78 @@ class WavinHysteresisNumber : public number::Number, public Component {
     // Update the climate entity's hysteresis when value changes
     if (this->climate_ != nullptr) {
       this->climate_->set_hysteresis(value);
-      this->publish_state(value);
-      // Save to flash for persistence across restarts
-      this->pref_.save(&value);
-      ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
-      // Write to physical thermostat
-      this->write_to_thermostat(value);
     }
+    this->publish_state(value);
+    // Save to flash for persistence across restarts
+    this->pref_.save(&value);
+    ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
+    // Write to physical thermostat
+    this->write_to_thermostat(value);
   }
 
   void write_to_thermostat(float value) {
-    // Write hysteresis to all channels controlled by this climate entity
-    if (this->parent_ == nullptr || this->climate_ == nullptr) return;
+    // Write hysteresis to channels - either from climate entity or direct members list
+    if (this->parent_ == nullptr) return;
+    
+    // Track which channels we've written to (to avoid duplicates)
+    std::set<uint8_t> written_channels;
+    
+    // If we have direct members (not tied to a climate), use those
+    if (!this->members_.empty()) {
+      ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to %zu channel(s)", value, this->members_.size());
+      for (uint8_t ch : this->members_) {
+        if (written_channels.find(ch) == written_channels.end()) {
+          this->parent_->write_channel_hysteresis(ch, value);
+          written_channels.insert(ch);
+        }
+      }
+      return;
+    }
+    
+    // Otherwise, use climate entity if available
+    if (this->climate_ == nullptr) return;
     
     // Get the channel(s) from the climate entity
     if (this->climate_->is_single_channel()) {
       uint8_t ch = this->climate_->get_single_channel();
       ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to thermostat channel %u", value, (unsigned) ch);
       this->parent_->write_channel_hysteresis(ch, value);
+      written_channels.insert(ch);
+      
+      // Also write to all sibling channels (other members of the same group(s))
+      std::set<uint8_t> siblings = this->parent_->get_group_sibling_channels(ch);
+      if (!siblings.empty()) {
+        // Build comma-separated list of sibling channels for logging
+        std::string sibling_list;
+        for (uint8_t sibling : siblings) {
+          if (!sibling_list.empty()) sibling_list += ", ";
+          sibling_list += std::to_string(sibling);
+        }
+        ESP_LOGI("wavin_ahc9000.number", "Propagating hysteresis %.1f°C to sibling channel(s): %s", value, sibling_list.c_str());
+        
+        for (uint8_t sibling : siblings) {
+          if (written_channels.find(sibling) == written_channels.end()) {
+            this->parent_->write_channel_hysteresis(sibling, value);
+            written_channels.insert(sibling);
+          }
+        }
+      }
     } else {
       // For group climates, write to all member channels
       const auto &members = this->climate_->get_members();
       ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to thermostat for %zu channels", value, members.size());
       for (auto ch : members) {
-        this->parent_->write_channel_hysteresis(ch, value);
+        if (written_channels.find(ch) == written_channels.end()) {
+          this->parent_->write_channel_hysteresis(ch, value);
+          written_channels.insert(ch);
+        }
       }
     }
   }
 
   WavinAHC9000 *parent_{nullptr};
   WavinZoneClimate *climate_{nullptr};
+  std::vector<uint8_t> members_{};  // Direct channel list (alternative to climate_)
   ESPPreferenceObject pref_;
 };
 

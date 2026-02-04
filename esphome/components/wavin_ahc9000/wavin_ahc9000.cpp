@@ -413,7 +413,14 @@ void WavinAHC9000::dump_channel_floor_limits(uint8_t channel) {
 }
 
 void WavinAHC9000::add_channel_climate(WavinZoneClimate *c) { this->single_ch_climates_.push_back(c); }
-void WavinAHC9000::add_group_climate(WavinZoneClimate *c) { this->group_climates_.push_back(c); }
+void WavinAHC9000::add_group_climate(WavinZoneClimate *c) { 
+  this->group_climates_.push_back(c); 
+  // Build reverse mapping: channel -> groups containing it
+  const auto &members = c->get_members();
+  for (uint8_t ch : members) {
+    this->channel_to_groups_[ch].push_back(c);
+  }
+}
 void WavinAHC9000::add_active_channel(uint8_t ch) {
   if (ch < 1 || ch > 16) return;
   if (std::find(this->active_channels_.begin(), this->active_channels_.end(), ch) == this->active_channels_.end()) {

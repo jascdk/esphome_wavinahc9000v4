@@ -1,0 +1,152 @@
+# Wavin AHC-9000 ESPHome Configuration - Hysteresis Group Propagation Test
+# This example demonstrates the fix for hysteresis propagation across group members
+#
+# Problem: When a single channel's hysteresis is changed, it should also update
+# all other channels that are members of the same group(s).
+#
+# Test Scenario:
+# - Channels 3 and 4 are members of a "Bedrooms" group climate
+# - Each channel also has its own individual climate control
+# - Each climate (both individual and group) has its own hysteresis number entity
+# - When you change the hysteresis for channel 3 individually, it should also
+#   update channel 4's hysteresis (since they're both in the Bedrooms group)
+
+substitutions:
+  device_name: wavin-heating-test
+  friendly_name: Wavin Heating Test
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable logging at INFO level to see hysteresis propagation messages
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  
+# Climate entities
+climate:
+  # Individual climate for Zone 3 (Bedroom 1)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 1"
+    id: bedroom1_climate
+    channel: 3
+  
+  # Individual climate for Zone 4 (Bedroom 2)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 2"
+    id: bedroom2_climate
+    channel: 4
+  
+  # Group climate for All Bedrooms (members: 3, 4)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "All Bedrooms"
+    id: bedrooms_climate
+    members: [3, 4]
+
+# Hysteresis number entities
+number:
+  # Hysteresis control for Bedroom 1 (individual)
+  # When you change this, it should also update Bedroom 2's hysteresis
+  # because they're both in the "All Bedrooms" group
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedroom1_climate
+    name: "Bedroom 1 Hysteresis"
+    type: hysteresis
+  
+  # Hysteresis control for Bedroom 2 (individual)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedroom2_climate
+    name: "Bedroom 2 Hysteresis"
+    type: hysteresis
+  
+  # Hysteresis control for All Bedrooms (group)
+  # When you change this, it updates both channels 3 and 4
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedrooms_climate
+    name: "Bedrooms Hysteresis"
+    type: hysteresis
+
+# Optional: Temperature sensors to monitor the effect
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: temperature
+    name: "Bedroom 1 Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 4
+    type: temperature
+    name: "Bedroom 2 Temperature"
+
+# Test Instructions:
+# =================
+#
+# 1. Deploy this configuration to your ESP32
+# 2. Open ESPHome logs and watch for hysteresis messages
+# 3. In Home Assistant, change "Bedroom 1 Hysteresis" from 0.3 to 0.5
+# 4. You should see log messages like:
+#    [I][wavin_ahc9000.number:xxx] Writing hysteresis 0.5°C to thermostat channel 3
+#    [I][wavin_ahc9000.number:xxx] Propagating hysteresis 0.5°C to sibling channel(s): 4
+#    [I][wavin_ahc9000:xxx] Hysteresis written to thermostat: ch=3 value=0.5°C (raw=0x0005)
+#    [I][wavin_ahc9000:xxx] Hysteresis written to thermostat: ch=4 value=0.5°C (raw=0x0005)
+# 5. Both channels 3 and 4 should now have hysteresis = 0.5°C
+#
+# Expected Behavior:
+# - Changing "Bedroom 1 Hysteresis" also updates channel 4 (the sibling)
+# - Changing "Bedroom 2 Hysteresis" also updates channel 3 (the sibling)
+# - Changing "Bedrooms Hysteresis" updates both channels 3 and 4
+# - All thermostats in the group maintain consistent hysteresis values
+#
+# Without the fix:
+# - Changing "Bedroom 1 Hysteresis" would only affect channel 3
+# - Channel 4 would keep its old hysteresis value
+# - The group would have inconsistent behavior
