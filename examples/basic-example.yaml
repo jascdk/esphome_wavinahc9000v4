@@ -101,7 +101,6 @@ switch:
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     channel: 1
-    type: child_lock
     name: "Living Room Child Lock"
 
 # Optional: Device information text sensors
