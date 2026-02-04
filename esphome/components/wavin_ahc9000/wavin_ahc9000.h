@@ -49,6 +49,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // New read-only floor limit sensors
   void add_channel_floor_min_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   void add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s);
+  // Humidity sensor
+  void add_channel_humidity_sensor(uint8_t ch, sensor::Sensor *s);
   // Average temperature sensor with member channels
   void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
@@ -147,6 +149,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     float floor_max_c{NAN};
     float setpoint_c{NAN};
     float standby_setpoint_c{NAN};
+    float humidity_pct{NAN}; // humidity percentage (0-100)
     climate::ClimateMode mode{climate::CLIMATE_MODE_HEAT};
     climate::ClimateAction action{climate::CLIMATE_ACTION_OFF};
     uint8_t battery_pct{255}; // 0..100; 255=unknown
@@ -165,6 +168,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // New read-only floor limit sensor maps
   std::map<uint8_t, sensor::Sensor *> floor_min_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
+  std::map<uint8_t, sensor::Sensor *> humidity_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
   // Average temperature sensors: sensor pointer -> list of member channels
   struct AverageTempSensor {
@@ -231,6 +235,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t ELEM_AIR_TEMPERATURE = 0x04; // index within block
   static constexpr uint8_t ELEM_FLOOR_TEMPERATURE = 0x05; // index for floor probe
   static constexpr uint8_t ELEM_BATTERY_STATUS = 0x0A;  // not used yet
+  static constexpr uint8_t ELEM_HUMIDITY = 0x0B;  // humidity sensor (if available)
 
   static constexpr uint8_t PACKED_MANUAL_TEMPERATURE = 0x00;
   static constexpr uint8_t PACKED_STANDBY_TEMPERATURE = 0x04;
@@ -327,6 +332,10 @@ inline void WavinAHC9000::add_channel_floor_min_temperature_sensor(uint8_t ch, s
 
 inline void WavinAHC9000::add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s) {
   this->floor_max_temperature_sensors_[ch] = s;
+}
+
+inline void WavinAHC9000::add_channel_humidity_sensor(uint8_t ch, sensor::Sensor *s) {
+  this->humidity_sensors_[ch] = s;
 }
 
 class WavinZoneClimate : public climate::Climate, public Component {

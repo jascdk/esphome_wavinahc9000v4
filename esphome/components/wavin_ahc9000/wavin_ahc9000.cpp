@@ -114,7 +114,7 @@ void WavinAHC9000::update() {
     }
     if (!st.all_tp_lost && st.primary_index > 0) {
       uint8_t elem_page = (uint8_t) (st.primary_index - 1);
-      if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+      if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
         st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
         this->yaml_elem_read_mask_ |= (1u << (ch - 1));
         if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -125,6 +125,19 @@ void WavinAHC9000::update() {
             st.has_floor_sensor = true;
           } else {
             st.floor_temp_c = NAN;
+          }
+        }
+        if (regs.size() > ELEM_HUMIDITY) {
+          uint16_t raw_humidity = regs[ELEM_HUMIDITY];
+          // Humidity is typically 0-100%, using same divisor as temperature (10.0)
+          // or might be 0-1000 representing 0-100.0%
+          float humidity = this->raw_to_c(raw_humidity);
+          // Basic plausibility filter (0..100%) to avoid invalid readings
+          if (humidity >= 0.0f && humidity <= 100.0f) {
+            st.humidity_pct = humidity;
+            ESP_LOGD(TAG, "CH%u humidity=%.1f%%", (unsigned) ch, humidity);
+          } else {
+            st.humidity_pct = NAN;
           }
         }
       }
@@ -206,7 +219,7 @@ void WavinAHC9000::update() {
         case 4: {
           if (!st.all_tp_lost && st.primary_index > 0) {
             uint8_t elem_page = (uint8_t) (st.primary_index - 1);
-            if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+            if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
               st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
               this->yaml_elem_read_mask_ |= (1u << (ch_num - 1));
               if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -228,6 +241,21 @@ void WavinAHC9000::update() {
               auto it_ft = this->floor_temperature_sensors_.find(ch_num);
               if (it_ft != this->floor_temperature_sensors_.end() && it_ft->second != nullptr && !std::isnan(st.floor_temp_c)) {
                 it_ft->second->publish_state(st.floor_temp_c);
+              }
+              // Humidity sensor publish if configured
+              if (regs.size() > ELEM_HUMIDITY) {
+                uint16_t raw_humidity = regs[ELEM_HUMIDITY];
+                float humidity = this->raw_to_c(raw_humidity);
+                if (humidity >= 0.0f && humidity <= 100.0f) {
+                  st.humidity_pct = humidity;
+                  ESP_LOGD(TAG, "CH%u humidity=%.1f%%", ch_num, humidity);
+                  auto it_h = this->humidity_sensors_.find(ch_num);
+                  if (it_h != this->humidity_sensors_.end() && it_h->second != nullptr) {
+                    it_h->second->publish_state(humidity);
+                  }
+                } else {
+                  st.humidity_pct = NAN;
+                }
               }
               // Battery status if available (0..9 scale, where 9=100%)
               if (regs.size() > ELEM_BATTERY_STATUS) {
@@ -852,7 +880,7 @@ void WavinAHC9000::generate_yaml_suggestion() {
         }
         // Try to read elements block to surface air/floor temps and detect floor probe immediately
         uint8_t elem_page = (uint8_t) (primary_index - 1);
-        if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 11, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+        if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
           st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
           this->yaml_elem_read_mask_ |= (1u << (ch - 1));
           if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -864,6 +892,16 @@ void WavinAHC9000::generate_yaml_suggestion() {
               if (threshold_hit || deviates) st.has_floor_sensor = true;
             } else {
               st.floor_temp_c = NAN;
+            }
+          }
+          // Humidity (optional)
+          if (regs.size() > ELEM_HUMIDITY) {
+            uint16_t raw_humidity = regs[ELEM_HUMIDITY];
+            float humidity = this->raw_to_c(raw_humidity);
+            if (humidity >= 0.0f && humidity <= 100.0f) {
+              st.humidity_pct = humidity;
+            } else {
+              st.humidity_pct = NAN;
             }
           }
           // Battery (optional, 0-9 scale where 9=100%)

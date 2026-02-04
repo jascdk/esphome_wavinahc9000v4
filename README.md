@@ -135,6 +135,7 @@ wavin_ahc9000:
   - `floor_temperature`: Floor temperature (requires `channel`)
   - `floor_min_temperature`: Floor minimum temperature limit (read-only, requires `channel`)
   - `floor_max_temperature`: Floor maximum temperature limit (read-only, requires `channel`)
+  - `humidity`: Room humidity percentage (requires `channel`)
   - `average_temperature`: Average temperature across multiple channels (requires `members`)
 
 **Note**: Use `channel` for single channel sensors, or `members` for average temperature sensors. They are mutually exclusive.
