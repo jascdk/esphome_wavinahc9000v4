@@ -7,7 +7,8 @@ substitutions:
 
 esphome:
   name: ${device_name}
-  platform: ESP32
+
+esp32:
   board: esp32dev
 
 # Enable logging
@@ -68,7 +69,17 @@ climate:
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Living Room"
+    id: living_room_climate
     channel: 1
+
+# Optional: Add hysteresis control for the climate entity (0.1-1.0°C)
+# Adjusts the temperature deadband to prevent rapid heating on/off cycles
+number:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: living_room_climate
+    name: "Living Room Hysteresis"
+    type: hysteresis
 
 # Optional: Add temperature sensor for zone 1
 sensor:

@@ -6,6 +6,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Group Climate**: Create virtual thermostats that control multiple zones together
+- **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity
 - **Temperature Sensors**: Room temperature, floor temperature sensors
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
