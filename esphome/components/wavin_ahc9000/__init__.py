@@ -22,6 +22,7 @@ CONF_TEMP_DIVISOR = "temp_divisor"
 CONF_RECEIVE_TIMEOUT_MS = "receive_timeout_ms"
 CONF_POLL_CHANNELS_PER_CYCLE = "poll_channels_per_cycle"
 CONF_ALLOW_MODE_WRITES = "allow_mode_writes"
+CONF_SYNC_GROUP_SETTINGS = "sync_group_settings"
 CONF_SYNC_CLOCK_ON_CONNECT = "sync_clock_on_connect"
 CONF_CLOCK_SYNC_INTERVAL = "clock_sync_interval"
 
@@ -40,6 +41,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RECEIVE_TIMEOUT_MS, default=1000): cv.positive_int,
             cv.Optional(CONF_POLL_CHANNELS_PER_CYCLE, default=2): cv.int_range(min=1, max=16),
             cv.Optional(CONF_ALLOW_MODE_WRITES, default=True): cv.boolean,
+            cv.Optional(CONF_SYNC_GROUP_SETTINGS, default=False): cv.boolean,
             cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
             cv.Optional(CONF_SYNC_CLOCK_ON_CONNECT, default=False): cv.boolean,
             cv.Optional(CONF_CLOCK_SYNC_INTERVAL): cv.positive_time_period_seconds,
@@ -68,6 +70,8 @@ async def to_code(config):
         cg.add(var.set_poll_channels_per_cycle(config[CONF_POLL_CHANNELS_PER_CYCLE]))
     if CONF_ALLOW_MODE_WRITES in config:
         cg.add(var.set_allow_mode_writes(config[CONF_ALLOW_MODE_WRITES]))
+    if CONF_SYNC_GROUP_SETTINGS in config:
+        cg.add(var.set_sync_group_settings(config[CONF_SYNC_GROUP_SETTINGS]))
     
     # Clock sync configuration
     if CONF_TIME_ID in config:
