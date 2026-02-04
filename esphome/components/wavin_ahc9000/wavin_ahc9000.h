@@ -274,14 +274,25 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr float HYSTERESIS_MAX = 2.0f; // Maximum hysteresis (2.0°C)
   // Note: PACKED_FLOOR_MIN_TEMPERATURE and PACKED_FLOOR_MAX_TEMPERATURE are contiguous; reads
   // have been consolidated (count=2 starting at MIN) to reduce RS485 transactions.
-  static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x07;
-  static constexpr uint16_t PACKED_CONFIGURATION_MODE_MANUAL = 0x00;
-  static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY = 0x01;
-  static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY_ALT = 0x04; // fallback for variant firmwares
-  static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_BIT = 0x0008; // suspected schedule/program flag
-  static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_MASK = 0x0018; // extended clear: bits 3 and 4
+  
+  // PACKED_CONFIGURATION register (0x07) bit definitions per Wavin Modbus specification:
+  // Bits [2:0] = MODE field (see mode constants below)
+  // Bit 4 = SCHED_ENA (schedule enable: 0=manual modes, 1=schedule-based modes)
+  // Bit 11 = CHILD_LOCK
+  // Bit 14 = Always set in strict mode writes (0x4000 baseline)
+  
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x07;          // Bits [2:0]: MODE field
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_MANUAL = 0x00;        // MODE=000: Manual mode
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY = 0x01;       // MODE=001: Permanent standby
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_ECO = 0x02;           // MODE=010: Permanent eco (or temp eco with SCHED_ENA=1)
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_COMFORT = 0x03;       // MODE=011: Permanent comfort (or temp comfort with SCHED_ENA=1)
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_STANDBY_ALT = 0x04;   // MODE=100: Party on manual (or with schedule)
+  static constexpr uint16_t PACKED_CONFIGURATION_MODE_HOLIDAY = 0x05;       // MODE=101: Holiday on manual (or with schedule)
+  
+  static constexpr uint16_t PACKED_CONFIGURATION_SCHED_ENA_BIT = 0x0010;    // Bit 4: SCHED_ENA (schedule enable)
+  static constexpr uint16_t PACKED_CONFIGURATION_PROGRAM_MASK = 0x0010;     // Bit 4 only: clear SCHED_ENA for manual modes
   static constexpr uint16_t PACKED_CONFIGURATION_STRICT_UNLOCK_MASK = 0x0078; // bits 3..6 (avoid touching mode bits 0..2)
-  static constexpr uint16_t PACKED_CONFIGURATION_CHILD_LOCK_MASK = 0x0800; // child lock bit (0x4000->0x4800)
+  static constexpr uint16_t PACKED_CONFIGURATION_CHILD_LOCK_MASK = 0x0800; // Bit 11: child lock (0x4000->0x4800)
 
   // Info category register indices
   static constexpr uint8_t INFO_CONTROL_UNIT_ADDRESS_L = 0x00;

@@ -104,10 +104,10 @@ void WavinAHC9000::update() {
         auto want = it_des->second;
         if (want != st.mode) {
           uint16_t current = raw_cfg;
-          // Enforce standard OFF bits or MANUAL, and clear program bits to prevent auto-switching
+          // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to prevent auto-switching
           uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
           uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_PROGRAM_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
-          ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared program bits)", (unsigned) ch, (unsigned) current, (unsigned) next);
+          ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch, (unsigned) current, (unsigned) next);
           if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
             // Schedule another quick check
             this->urgent_channels_.push_back(ch);
@@ -205,10 +205,10 @@ void WavinAHC9000::update() {
               auto want = it_des->second;
               if (want != st.mode) {
                 uint16_t current = raw_cfg;
-                // Enforce standard OFF bits or MANUAL, and clear program bits to prevent auto-switching
+                // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to prevent auto-switching
                 uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
                 uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_PROGRAM_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
-                ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared program bits)", (unsigned) ch_num, (unsigned) current, (unsigned) next);
+                ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch_num, (unsigned) current, (unsigned) next);
                 if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
                   // Schedule another quick check
                   this->urgent_channels_.push_back(ch_num);
@@ -754,22 +754,23 @@ void WavinAHC9000::write_channel_mode(uint8_t channel, climate::ClimateMode mode
   if (channel < 1 || channel > 16) return;
   uint8_t page = (uint8_t) (channel - 1);
   this->desired_mode_[channel] = mode;
-  // Always use strict baseline to 0x4000/0x4001 for reliable OFF/HEAT
-  // IMPORTANT: Clear program/schedule bits (0x0018) to prevent thermostat from auto-switching modes
+  // Always use strict baseline to 0x4000 with SCHED_ENA=0 for reliable OFF/HEAT manual modes
+  // Per Wavin spec: 0x4000 = bit 14 set, SCHED_ENA (bit 4) = 0, MODE bits [2:0] = 000 or 001
+  // IMPORTANT: Clear SCHED_ENA (bit 4) to ensure manual control mode (not schedule-based)
   bool ok = false;
   {
     uint16_t strict_val = (uint16_t) (0x4000 | (mode == climate::CLIMATE_MODE_OFF ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL));
     ok = this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, strict_val);
   }
   if (!ok) {
-    // Fallback: read-modify-write full register (clear program bits and update mode bits)
+    // Fallback: read-modify-write full register (clear SCHED_ENA and update MODE bits)
     std::vector<uint16_t> regs;
     if (this->read_registers(CAT_PACKED, page, PACKED_CONFIGURATION, 1, regs) && regs.size() >= 1) {
       uint16_t current = regs[0];
-      // Clear both mode bits (0x07) and program bits (0x0018), then set new mode
+      // Clear MODE bits (0x07) and SCHED_ENA bit (0x10), then set new MODE
       uint16_t new_bits = (mode == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
       uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_PROGRAM_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
-      ESP_LOGW(TAG, "WM fallback: PACKED_CONFIGURATION ch=%u cur=0x%04X next=0x%04X (cleared program bits)", (unsigned) channel, (unsigned) current, (unsigned) next);
+      ESP_LOGW(TAG, "WM fallback: PACKED_CONFIGURATION ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) channel, (unsigned) current, (unsigned) next);
       ok = this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, next);
   // No alternate OFF attempt to avoid special thermostat modes
     } else {
@@ -880,10 +881,10 @@ void WavinAHC9000::normalize_channel_config(uint8_t channel, bool off) {
   if (channel < 1 || channel > 16) return;
   uint8_t page = (uint8_t) (channel - 1);
   // Force PACKED_CONFIGURATION to exact baseline used by healthy channels
-  // Clear program bits to ensure manual control mode persists
+  // Clear SCHED_ENA to ensure manual control mode persists
   uint16_t value = (uint16_t) (0x4000 | (off ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL));
   if (this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, value)) {
-    ESP_LOGW(TAG, "Normalize (strict) applied: ch=%u -> 0x%04X (program bits cleared)", (unsigned) channel, (unsigned) value);
+    ESP_LOGW(TAG, "Normalize (strict) applied: ch=%u -> 0x%04X (cleared SCHED_ENA)", (unsigned) channel, (unsigned) value);
     this->urgent_channels_.push_back(channel);
     this->suspend_polling_until_ = millis() + 100;
   } else {
