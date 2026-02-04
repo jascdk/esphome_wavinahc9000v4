@@ -163,6 +163,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void sync_hysteresis_to_group(uint8_t changed_channel, float new_value);
   void sync_eco_temp_to_group(uint8_t changed_channel, float new_value);
   void sync_comfort_temp_to_group(uint8_t changed_channel, float new_value);
+  std::string format_sibling_list(const std::set<uint8_t> &siblings) const;
+  template<typename T>
+  void update_number_entities(const std::vector<T *> &entities, const std::set<uint8_t> &siblings, 
+                               float new_value, const char *entity_type);
 
   // Helpers
   float raw_to_c(float raw) const { return raw / this->temp_divisor_; }

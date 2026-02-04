@@ -1456,6 +1456,33 @@ std::string WavinAHC9000::get_yaml_child_lock_chunk(uint8_t start, uint8_t count
   return build_child_lock_yaml_for(this, slice);
 }
 
+std::string WavinAHC9000::format_sibling_list(const std::set<uint8_t> &siblings) const {
+  std::string list;
+  for (uint8_t sibling : siblings) {
+    if (!list.empty()) list += ", ";
+    list += std::to_string(sibling);
+  }
+  return list;
+}
+
+template<typename T>
+void WavinAHC9000::update_number_entities(const std::vector<T *> &entities, const std::set<uint8_t> &siblings, 
+                                          float new_value, const char *entity_type) {
+  for (auto *num : entities) {
+    if (num == nullptr) continue;
+    // Check if this number entity controls any of the affected channels
+    const auto &members = num->get_members();
+    for (uint8_t member : members) {
+      if (siblings.count(member) > 0) {
+        // This number entity controls at least one affected channel, update its UI
+        num->publish_state(new_value);
+        ESP_LOGD(TAG, "Updated %s number entity to %.1f°C", entity_type, new_value);
+        break;  // Only update each number entity once
+      }
+    }
+  }
+}
+
 void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_value) {
   // Get all sibling channels (other members of the same groups)
   std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
@@ -1465,13 +1492,8 @@ void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_v
   }
   
   // Log the sync operation
-  std::string sibling_list;
-  for (uint8_t sibling : siblings) {
-    if (!sibling_list.empty()) sibling_list += ", ";
-    sibling_list += std::to_string(sibling);
-  }
   ESP_LOGI(TAG, "Syncing hysteresis %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, sibling_list.c_str());
+           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
   
   // Write to all sibling channels
   for (uint8_t sibling : siblings) {
@@ -1482,19 +1504,7 @@ void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_v
   }
   
   // Update all hysteresis number entities that include any of the sibling channels
-  for (auto *num : this->hysteresis_numbers_) {
-    if (num == nullptr) continue;
-    // Check if this number entity controls any of the affected channels
-    const auto &members = num->get_members();
-    for (uint8_t member : members) {
-      if (siblings.count(member) > 0) {
-        // This number entity controls at least one affected channel, update its UI
-        num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated hysteresis number entity to %.1f°C", new_value);
-        break;  // Only update each number entity once
-      }
-    }
-  }
+  this->update_number_entities(this->hysteresis_numbers_, siblings, new_value, "hysteresis");
 }
 
 void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_value) {
@@ -1506,13 +1516,8 @@ void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_val
   }
   
   // Log the sync operation
-  std::string sibling_list;
-  for (uint8_t sibling : siblings) {
-    if (!sibling_list.empty()) sibling_list += ", ";
-    sibling_list += std::to_string(sibling);
-  }
   ESP_LOGI(TAG, "Syncing eco temp %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, sibling_list.c_str());
+           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
   
   // Write to all sibling channels
   for (uint8_t sibling : siblings) {
@@ -1523,19 +1528,7 @@ void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_val
   }
   
   // Update all temp_low number entities that include any of the sibling channels
-  for (auto *num : this->temp_low_numbers_) {
-    if (num == nullptr) continue;
-    // Check if this number entity controls any of the affected channels
-    const auto &members = num->get_members();
-    for (uint8_t member : members) {
-      if (siblings.count(member) > 0) {
-        // This number entity controls at least one affected channel, update its UI
-        num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated temp_low number entity to %.1f°C", new_value);
-        break;  // Only update each number entity once
-      }
-    }
-  }
+  this->update_number_entities(this->temp_low_numbers_, siblings, new_value, "temp_low");
 }
 
 void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new_value) {
@@ -1547,13 +1540,8 @@ void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new
   }
   
   // Log the sync operation
-  std::string sibling_list;
-  for (uint8_t sibling : siblings) {
-    if (!sibling_list.empty()) sibling_list += ", ";
-    sibling_list += std::to_string(sibling);
-  }
   ESP_LOGI(TAG, "Syncing comfort temp %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, sibling_list.c_str());
+           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
   
   // Write to all sibling channels
   for (uint8_t sibling : siblings) {
@@ -1564,19 +1552,7 @@ void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new
   }
   
   // Update all temp_high number entities that include any of the sibling channels
-  for (auto *num : this->temp_high_numbers_) {
-    if (num == nullptr) continue;
-    // Check if this number entity controls any of the affected channels
-    const auto &members = num->get_members();
-    for (uint8_t member : members) {
-      if (siblings.count(member) > 0) {
-        // This number entity controls at least one affected channel, update its UI
-        num->publish_state(new_value);
-        ESP_LOGD(TAG, "Updated temp_high number entity to %.1f°C", new_value);
-        break;  // Only update each number entity once
-      }
-    }
-  }
+  this->update_number_entities(this->temp_high_numbers_, siblings, new_value, "temp_high");
 }
 
 void WavinAHC9000::publish_updates() {
