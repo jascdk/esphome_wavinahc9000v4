@@ -127,8 +127,30 @@ climate:
   - `hw_version`: Hardware version (e.g., MC11012)
   - `sw_version`: Software version (e.g., MC61014 or MC61014b11 for beta)
   - `device_name`: Device name (e.g., AC-116)
+  - `channel_info`: Channel attributes as JSON (requires `channel` parameter)
+- **channel** (*Optional*): Channel number (1-16), required for `channel_info` type
 
 **Device Info Sensors**: The control unit address, hardware version, software version, and device name are read once during startup from the Info category registers (0x09) as specified in the Modbus documentation. These provide identification information about the Wavin AHC-9000 controller.
+
+**Channel Info Sensor**: The `channel_info` text sensor provides a JSON string containing all attributes for a specific channel, including: temperature, setpoint, floor temperature (if available), floor min/max limits, battery level, mode, action, child lock status, and sensor presence flags. This is useful for creating advanced Home Assistant templates and cards that display multiple channel attributes together.
+
+Example JSON output:
+```json
+{
+  "channel": 1,
+  "temperature": 21.5,
+  "setpoint": 22.0,
+  "floor_temperature": 23.5,
+  "floor_min": 15.0,
+  "floor_max": 30.0,
+  "battery": 85,
+  "mode": "heat",
+  "action": "heating",
+  "child_lock": false,
+  "has_floor_sensor": true,
+  "all_tp_lost": false
+}
+```
 
 ## Full Example
 

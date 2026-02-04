@@ -192,3 +192,16 @@ text_sensor:
     wavin_ahc9000_id: wavin_controller
     type: device_name
     name: "Device Name"
+  
+  # Channel info sensors (expose channel attributes as JSON)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: channel_info
+    channel: 1
+    name: "Living Room Info"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: channel_info
+    channel: 2
+    name: "Kitchen Info"

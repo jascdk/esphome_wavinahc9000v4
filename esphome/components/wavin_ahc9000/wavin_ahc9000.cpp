@@ -1146,6 +1146,84 @@ void WavinAHC9000::publish_updates() {
     }
   }
 
+  // Channel info text sensors (expose channel attributes as JSON)
+  for (auto &kv : this->channel_info_text_sensors_) {
+    uint8_t ch = kv.first;
+    auto *ts = kv.second;
+    if (!ts) continue;
+    auto it = this->channels_.find(ch);
+    if (it != this->channels_.end()) {
+      const auto &st = it->second;
+      // Build JSON string with channel attributes
+      std::string json = "{";
+      json += "\"channel\":" + std::to_string(ch);
+      json += ",\"temperature\":";
+      if (!std::isnan(st.current_temp_c)) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", st.current_temp_c);
+        json += buf;
+      } else {
+        json += "null";
+      }
+      json += ",\"setpoint\":";
+      if (!std::isnan(st.setpoint_c)) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", st.setpoint_c);
+        json += buf;
+      } else {
+        json += "null";
+      }
+      json += ",\"floor_temperature\":";
+      if (!std::isnan(st.floor_temp_c) && st.has_floor_sensor) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", st.floor_temp_c);
+        json += buf;
+      } else {
+        json += "null";
+      }
+      json += ",\"floor_min\":";
+      if (!std::isnan(st.floor_min_c)) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", st.floor_min_c);
+        json += buf;
+      } else {
+        json += "null";
+      }
+      json += ",\"floor_max\":";
+      if (!std::isnan(st.floor_max_c)) {
+        char buf[16];
+        snprintf(buf, sizeof(buf), "%.1f", st.floor_max_c);
+        json += buf;
+      } else {
+        json += "null";
+      }
+      json += ",\"battery\":";
+      if (st.battery_pct != 255) {
+        json += std::to_string(st.battery_pct);
+      } else {
+        json += "null";
+      }
+      json += ",\"mode\":\"";
+      json += (st.mode == climate::CLIMATE_MODE_HEAT ? "heat" : (st.mode == climate::CLIMATE_MODE_OFF ? "off" : "unknown"));
+      json += "\",\"action\":\"";
+      if (st.action == climate::CLIMATE_ACTION_HEATING) {
+        json += "heating";
+      } else if (st.action == climate::CLIMATE_ACTION_IDLE) {
+        json += "idle";
+      } else {
+        json += "off";
+      }
+      json += "\",\"child_lock\":";
+      json += (st.child_lock ? "true" : "false");
+      json += ",\"has_floor_sensor\":";
+      json += (st.has_floor_sensor ? "true" : "false");
+      json += ",\"all_tp_lost\":";
+      json += (st.all_tp_lost ? "true" : "false");
+      json += "}";
+      ts->publish_state(json);
+    }
+  }
+
   // YAML readiness: ready if we have discovered at least one active channel and have completed at least one element read for all of them.
   {
     uint16_t required = this->yaml_primary_present_mask_;

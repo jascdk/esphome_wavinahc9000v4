@@ -6,12 +6,14 @@ from . import WavinAHC9000
 
 CONF_PARENT_ID = "wavin_ahc9000_id"
 CONF_TYPE = "type"
+CONF_CHANNEL = "channel"
 
 # Icons for different device info types
 ICON_ADDRESS = "mdi:identifier"
 ICON_HARDWARE = "mdi:chip"
 ICON_SOFTWARE = "mdi:application"
 ICON_DEVICE = "mdi:devices"
+ICON_INFO = "mdi:information"
 
 CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend(
     {
@@ -21,8 +23,10 @@ CONFIG_SCHEMA = text_sensor.text_sensor_schema().extend(
             "hw_version",
             "sw_version",
             "device_name",
+            "channel_info",
             lower=True,
         ),
+        cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
     }
 )
 
@@ -46,3 +50,9 @@ async def to_code(config):
     elif sensor_type == "device_name":
         cg.add(sens.set_icon(ICON_DEVICE))
         cg.add(hub.add_device_name_text_sensor(sens))
+    elif sensor_type == "channel_info":
+        # channel_info requires a channel parameter
+        if CONF_CHANNEL not in config:
+            raise cv.Invalid("channel_info type requires 'channel' parameter")
+        cg.add(sens.set_icon(ICON_INFO))
+        cg.add(hub.add_channel_info_text_sensor(config[CONF_CHANNEL], sens))

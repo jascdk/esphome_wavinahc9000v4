@@ -56,6 +56,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_hw_version_text_sensor(text_sensor::TextSensor *s) { this->hw_version_text_sensor_ = s; }
   void add_sw_version_text_sensor(text_sensor::TextSensor *s) { this->sw_version_text_sensor_ = s; }
   void add_device_name_text_sensor(text_sensor::TextSensor *s) { this->device_name_text_sensor_ = s; }
+  void add_channel_info_text_sensor(uint8_t ch, text_sensor::TextSensor *s) { this->channel_info_text_sensors_[ch] = s; }
 
   // Send commands
   void write_channel_setpoint(uint8_t channel, float celsius);
@@ -159,6 +160,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   text_sensor::TextSensor *hw_version_text_sensor_{nullptr};
   text_sensor::TextSensor *sw_version_text_sensor_{nullptr};
   text_sensor::TextSensor *device_name_text_sensor_{nullptr};
+  // Channel info text sensors (expose attributes as JSON)
+  std::map<uint8_t, text_sensor::TextSensor *> channel_info_text_sensors_;
   std::string yaml_last_suggestion_{};
   std::string yaml_last_climate_{};
   std::string yaml_last_battery_{};
