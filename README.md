@@ -180,6 +180,7 @@ sensor:
 - **Default**: 0.3°C
 - **Persistence**: Values are automatically saved to flash memory and restored after ESP32 restart
 - **Scope**: Written to both ESPHome (for display) AND the physical thermostat (PACKED register 0x0E)
+- **Group Propagation**: When changing hysteresis for a single channel that is a member of a group, the value automatically propagates to all sibling channels in the same group(s)
 
 The hysteresis value works as follows:
 - When `current_temperature > target_temperature + hysteresis`: Action is IDLE
@@ -189,8 +190,11 @@ The hysteresis value works as follows:
 **Important**: When you change the hysteresis value in Home Assistant, it is written to:
 1. **ESPHome memory**: For calculating the displayed climate action (HEATING/IDLE)
 2. **Physical thermostat**: Via Modbus to PACKED register 0x0E, affecting the actual relay control
+3. **Sibling channels**: If the channel is a member of a group, the hysteresis is also written to all other members of that group
 
-This ensures both the UI state and the physical heating behavior are synchronized.
+This ensures both the UI state and the physical heating behavior are synchronized, and all thermostats in a group maintain consistent behavior.
+
+**Group Propagation Example**: If channels 3 and 4 are members of a "Bedrooms" group, changing the hysteresis for channel 3 will automatically update channel 4's hysteresis as well. This keeps all thermostats in the group synchronized. See [HYSTERESIS_GROUP_PROPAGATION.md](HYSTERESIS_GROUP_PROPAGATION.md) for detailed information.
 
 **Note**: Each climate entity (both single channel and group) can have its own hysteresis control.
 
