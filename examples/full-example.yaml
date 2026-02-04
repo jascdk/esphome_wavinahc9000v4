@@ -160,6 +160,13 @@ sensor:
     type: battery
     name: "Bedroom 1 Battery"
   
+  # Optional: Humidity sensor (if supported by thermostat)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: humidity
+    name: "Bedroom 1 Humidity"
+  
   # Average temperature sensors
   # Example: Average temperature of all bedrooms
   - platform: wavin_ahc9000

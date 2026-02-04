@@ -167,3 +167,84 @@ After validating the component structure:
 3. Test all entity types (climate, sensors, switches, etc.)
 4. Validate that zone control works correctly
 5. Test auto-discovery and YAML generation features
+
+## Humidity Sensor Testing
+
+### Background
+
+According to the problem statement, room thermostats can read humidity (per documentation). This implementation adds humidity sensor support to test this capability.
+
+### What Was Implemented
+
+The following changes enable humidity sensor testing:
+
+1. **Added ELEM_HUMIDITY constant** (index 0x0B) in the ELEMENTS category
+2. **Extended register reads** from 11 to 12 registers to include potential humidity data
+3. **Added humidity field** to ChannelState structure (humidity_pct)
+4. **Added sensor configuration** for "humidity" type in sensor.py
+5. **Implemented parsing logic** with plausibility checks (0-100% range)
+
+### How to Test Humidity Sensors
+
+1. **Use the test configuration**:
+   ```yaml
+   # See examples/humidity-test.yaml for full example
+   sensor:
+     - platform: wavin_ahc9000
+       wavin_ahc9000_id: wavin_controller
+       channel: 1
+       type: humidity
+       name: "Zone 1 Humidity"
+   ```
+
+2. **Enable DEBUG logging** to see if humidity values are being read:
+   ```yaml
+   logger:
+     level: DEBUG
+   ```
+
+3. **Look for log messages** like:
+   ```
+   [D][wavin_ahc9000:xxx] CH1 humidity=45.2%
+   ```
+
+### Expected Behavior
+
+**If thermostats support humidity:**
+- Humidity sensor will publish valid values (0-100%)
+- DEBUG logs will show "CH# humidity=XX.X%" messages
+- Home Assistant will show humidity readings for configured channels
+
+**If thermostats do NOT support humidity:**
+- Humidity sensor will remain in "Unknown" state
+- No humidity log messages will appear
+- Register 0x0B may contain 0, invalid data, or unrelated values
+
+### Validation Steps
+
+1. **Deploy the test configuration** (examples/humidity-test.yaml) to an ESP32
+2. **Monitor ESPHome logs** with DEBUG level enabled
+3. **Check for humidity values** in the logs after the component starts polling
+4. **Observe sensor states** in Home Assistant or ESPHome dashboard
+5. **Document findings**:
+   - Does register 0x0B contain valid humidity data?
+   - What format is the data in (raw value 0-1000 representing 0-100.0%)?
+   - Do all thermostats report humidity, or only certain models?
+
+### Interpreting Results
+
+The humidity value uses the same temperature divisor (10.0 by default), so:
+- Raw value 450 → 45.0%
+- Raw value 623 → 62.3%
+
+If you see values outside 0-100% range:
+- The data might be in a different format
+- Adjust the parsing logic or divisor accordingly
+- Register 0x0B might not contain humidity data
+
+### Next Steps After Testing
+
+1. If humidity works: Update documentation with confirmed support
+2. If humidity doesn't work: Document that register 0x0B doesn't contain humidity
+3. If different format needed: Adjust parsing logic based on actual data observed
+4. Consider testing other register indices (0x0C, 0x0D, etc.) if 0x0B doesn't work
