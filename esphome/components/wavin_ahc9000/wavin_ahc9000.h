@@ -6,6 +6,7 @@
 #include "esphome/components/number/number.h"
 #include "esphome/components/time/real_time_clock.h"
 #include "esphome/core/component.h"
+#include "esphome/core/preferences.h"
 
 #include <vector>
 #include <map>
@@ -395,10 +396,25 @@ class WavinHysteresisNumber : public number::Number, public Component {
   void set_climate(WavinZoneClimate *c) { this->climate_ = c; }
   
   void setup() override {
-    // Initialize with current climate hysteresis value
-    if (this->climate_ != nullptr) {
-      float current = this->climate_->get_hysteresis();
-      this->publish_state(current);
+    // Load persisted value from flash
+    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    float value;
+    if (this->pref_.load(&value)) {
+      // Restore saved value
+      if (this->climate_ != nullptr) {
+        this->climate_->set_hysteresis(value);
+      }
+      this->publish_state(value);
+      ESP_LOGD("wavin_ahc9000.number", "Restored hysteresis: %.1f°C", value);
+    } else {
+      // First boot or no saved value - use current climate hysteresis value
+      if (this->climate_ != nullptr) {
+        float current = this->climate_->get_hysteresis();
+        this->publish_state(current);
+        // Save the default value
+        this->pref_.save(&current);
+        ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
+      }
     }
   }
 
@@ -408,11 +424,15 @@ class WavinHysteresisNumber : public number::Number, public Component {
     if (this->climate_ != nullptr) {
       this->climate_->set_hysteresis(value);
       this->publish_state(value);
+      // Save to flash for persistence across restarts
+      this->pref_.save(&value);
+      ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
     }
   }
 
   WavinAHC9000 *parent_{nullptr};
   WavinZoneClimate *climate_{nullptr};
+  ESPPreferenceObject pref_;
 };
 
 // Repair button removed; use API service to normalize
