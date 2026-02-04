@@ -29,12 +29,6 @@ def validate_sensor_config(config):
             raise cv.Invalid("average_temperature sensor cannot have 'channel', use 'members' instead")
         if not has_members:
             raise cv.Invalid("average_temperature sensor requires 'members' list")
-    elif sensor_type == "cpu_temperature":
-        # cpu_temperature is a global sensor, no channel or members needed
-        if has_channel:
-            raise cv.Invalid("cpu_temperature sensor cannot have 'channel'")
-        if has_members:
-            raise cv.Invalid("cpu_temperature sensor cannot have 'members'")
     else:
         # Other sensor types require channel, not members
         if has_members:
@@ -58,7 +52,6 @@ CONFIG_SCHEMA = cv.All(
                 "floor_min_temperature",
                 "floor_max_temperature",
                 "average_temperature",
-                "cpu_temperature",
                 lower=True,
             ),
         }
@@ -78,12 +71,6 @@ async def to_code(config):
         cg.add(sens.set_accuracy_decimals(0))
         cg.add(hub.add_channel_battery_sensor(config[CONF_CHANNEL], sens))
         cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
-    elif config[CONF_TYPE] == "cpu_temperature":
-        # CPU temperature sensor (controller internal diagnostic)
-        cg.add(sens.set_device_class(DEVICE_CLASS_TEMPERATURE))
-        cg.add(sens.set_unit_of_measurement(UNIT_CELSIUS))
-        cg.add(sens.set_accuracy_decimals(1))
-        cg.add(hub.add_cpu_temperature_sensor(sens))
     elif config[CONF_TYPE] == "average_temperature":
         # average_temperature sensor with members list
         cg.add(sens.set_device_class(DEVICE_CLASS_TEMPERATURE))
