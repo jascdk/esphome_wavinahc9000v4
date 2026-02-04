@@ -14,7 +14,7 @@ number:
     type: temp_low
     members: [1, 2, 3, 4]
     name: "Eco Temperature"
-    entity_category: config
+    # entity_category: config  # Optional: Uncomment to hide from main UI
   
   # Temperature High (Comfort mode) - for channels 1-4
   - platform: wavin_ahc9000
@@ -22,8 +22,24 @@ number:
     type: temp_high
     members: [1, 2, 3, 4]
     name: "Comfort Temperature"
-    entity_category: config
+    # entity_category: config  # Optional: Uncomment to hide from main UI
 ```
+
+## ⚠️ Entity Visibility in Home Assistant
+
+**Important**: Where you can find these entities depends on the `entity_category` setting:
+
+- **Without `entity_category: config`** (recommended for easy access):
+  - Entities appear in your Home Assistant dashboards
+  - Visible in the main entity list
+  - Easy to add to lovelace cards
+
+- **With `entity_category: config`**:
+  - Entities are **hidden from the main UI**
+  - Only accessible via: Settings → Devices & Services → ESPHome → [Your Device] → Configure
+  - Or by searching for the entity name in entity settings
+
+**If you can't see your entities**: Remove the `entity_category: config` line from your YAML configuration and re-upload your ESPHome firmware.
 
 ## What These Do
 
@@ -48,14 +64,12 @@ number:
     type: temp_low
     members: [1, 2]
     name: "Living Area Eco Temperature"
-    entity_category: config
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_high
     members: [1, 2]
     name: "Living Area Comfort Temperature"
-    entity_category: config
   
   # Bedrooms (channels 3, 4)
   - platform: wavin_ahc9000
@@ -63,14 +77,12 @@ number:
     type: temp_low
     members: [3, 4]
     name: "Bedrooms Eco Temperature"
-    entity_category: config
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_high
     members: [3, 4]
     name: "Bedrooms Comfort Temperature"
-    entity_category: config
 ```
 
 ## Important Notes

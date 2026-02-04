@@ -119,6 +119,11 @@ climate:
     members: [1, 2]
 
 # Number entities for controlling hysteresis, eco, and comfort temperatures
+# 
+# NOTE: entity_category: config hides these from the main UI.
+# Remove 'entity_category: config' to show them in dashboards.
+# See quick-add-temp-entities.yaml for details on entity visibility.
+#
 number:
   # Hysteresis controls for each group
   # Changes made on physical thermostats will be detected and synced within groups
@@ -127,14 +132,14 @@ number:
     type: hysteresis
     members: [3, 4]
     name: "Work Area Hysteresis"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: hysteresis
     members: [1, 2]
     name: "Common Area Hysteresis"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
   
   # Eco (temp_low) temperature controls
   # When changed on a physical thermostat, will sync to other group members
@@ -143,14 +148,14 @@ number:
     type: temp_low
     members: [3, 4]
     name: "Work Area Eco Temperature"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_low
     members: [1, 2]
     name: "Common Area Eco Temperature"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
   
   # Comfort (temp_high) temperature controls
   # When changed on a physical thermostat, will sync to other group members
@@ -159,14 +164,14 @@ number:
     type: temp_high
     members: [3, 4]
     name: "Work Area Comfort Temperature"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_high
     members: [1, 2]
     name: "Common Area Comfort Temperature"
-    entity_category: config
+    entity_category: config  # Remove to show in main UI
 
 # Temperature sensors to monitor rooms
 sensor:

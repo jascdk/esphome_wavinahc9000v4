@@ -83,6 +83,21 @@ climate:
 # ----------------------
 # Number Entities
 # ----------------------
+# ⚠️ IMPORTANT: Entity Visibility in Home Assistant
+# 
+# The 'entity_category: config' setting affects where these entities appear:
+#
+# WITH entity_category: config (current setting):
+#   - Entities are HIDDEN from main Home Assistant UI
+#   - Only accessible in: Settings → Devices & Services → ESPHome → [Device] → Configure
+#
+# WITHOUT entity_category: config (recommended for easy access):
+#   - Entities appear in dashboards and main UI
+#   - Easy to find and control
+#
+# To make these entities visible in your main UI:
+#   Remove or comment out the 'entity_category: config' lines below
+#
 number:
   # Temperature Low (Eco) - controls the eco mode temperature setpoint
   # When thermostat is in ECO mode, it will target this temperature
@@ -91,7 +106,7 @@ number:
     type: temp_low
     members: [1, 2, 3, 4]
     name: "Eco Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   # Temperature High (Comfort) - controls the comfort mode temperature setpoint
   # When thermostat is in COMFORT mode, it will target this temperature
@@ -100,7 +115,7 @@ number:
     type: temp_high
     members: [1, 2, 3, 4]
     name: "Comfort Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   # You can also create separate controls for different zones
   - platform: wavin_ahc9000
@@ -108,28 +123,28 @@ number:
     type: temp_low
     members: [1, 2]
     name: "Living Area Eco Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_high
     members: [1, 2]
     name: "Living Area Comfort Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_low
     members: [3, 4]
     name: "Bedrooms Eco Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: temp_high
     members: [3, 4]
     name: "Bedrooms Comfort Temperature"
-    entity_category: config
+    entity_category: config  # Remove this line to show in main UI
   
   # Optional: Hysteresis control (temperature deadband)
   - platform: wavin_ahc9000

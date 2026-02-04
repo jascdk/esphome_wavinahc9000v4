@@ -9,7 +9,7 @@ number:
     type: temp_low
     members: [1, 2, 3, 4]  # List the channels you want to control
     name: "Eco Temperature"
-    entity_category: config  # Shows under "Configuration" in Home Assistant
+    # entity_category: config  # OPTIONAL: Uncomment to hide from main UI (only in device settings)
   
   # Temperature High (Comfort mode) - adjust the members list to match your channels
   - platform: wavin_ahc9000
@@ -17,12 +17,24 @@ number:
     type: temp_high
     members: [1, 2, 3, 4]  # List the channels you want to control
     name: "Comfort Temperature"
-    entity_category: config  # Shows under "Configuration" in Home Assistant
+    # entity_category: config  # OPTIONAL: Uncomment to hide from main UI (only in device settings)
+
+# ⚠️ IMPORTANT: Where to Find These Entities in Home Assistant
+#
+# WITHOUT entity_category: config (default above - RECOMMENDED):
+#   ✓ Entities appear in your dashboards
+#   ✓ Visible in main entity list
+#   ✓ Easy to add to lovelace cards
+#
+# WITH entity_category: config (if uncommented):
+#   ✗ Entities are HIDDEN from main UI
+#   ✓ Only in: Settings → Devices & Services → ESPHome → [Device] → Configure
+#   ℹ Use this if you rarely adjust these settings
 
 # After adding these:
 # 1. Save your YAML file
 # 2. Compile and upload to your ESP32
-# 3. The entities will appear in Home Assistant under the device's Configuration section
+# 3. The entities will appear in Home Assistant (see notes above about where)
 # 4. Default values: Eco=18°C, Comfort=22°C
 # 5. Range: 6-40°C with 0.5°C steps
 
