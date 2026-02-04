@@ -34,7 +34,7 @@ void WavinAHC9000::setup() {
   this->read_device_info();
   
   // Sync clock on connect if configured
-  if (this->sync_clock_on_connect_ && !this->time_id_.empty()) {
+  if (this->sync_clock_on_connect_ && this->time_id_ != nullptr) {
     // Delay initial sync slightly to allow time component to initialize
     this->set_timeout(2000, [this]() {
       ESP_LOGI(TAG, "Initial clock sync on connect");
@@ -260,7 +260,7 @@ void WavinAHC9000::update() {
   this->publish_updates();
 
   // Check if we need to sync the clock periodically
-  if (!this->time_id_.empty() && this->clock_sync_interval_ > 0) {
+  if (this->time_id_ != nullptr && this->clock_sync_interval_ > 0) {
     uint32_t now = millis();
     // Check if it's time for periodic sync (after initial sync)
     if (this->clock_synced_once_ && (now - this->last_clock_sync_) >= (this->clock_sync_interval_ * 1000)) {
@@ -271,19 +271,13 @@ void WavinAHC9000::update() {
 }
 
 bool WavinAHC9000::sync_clock_now() {
-  if (this->time_id_.empty()) {
+  if (this->time_id_ == nullptr) {
     ESP_LOGW(TAG, "Clock sync requested but no time source configured");
     return false;
   }
 
   // Get current time from ESPHome time component
-  auto time_id = App.get_time_by_name(this->time_id_);
-  if (time_id == nullptr) {
-    ESP_LOGW(TAG, "Time component '%s' not found", this->time_id_.c_str());
-    return false;
-  }
-
-  auto now = time_id->now();
+  auto now = this->time_id_->now();
   if (!now.is_valid()) {
     ESP_LOGD(TAG, "Time not yet valid, skipping clock sync");
     return false;
