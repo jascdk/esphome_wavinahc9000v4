@@ -119,7 +119,7 @@ void WavinAHC9000::update() {
         // Parse status register for thermostat connection status
         uint16_t status = regs[ELEM_STATUS];
         bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-        bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
+        bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;  // Not used for logic, only for debug logging
         bool is_tp = (status & ELEM_STATUS_TP_MASK) != 0;
         st.thermostat_connected = this->parse_thermostat_connection_status(regs);
         ESP_LOGD(TAG, "CH%u status=0x%04X ALIVE=%d LOST=%d TP=%d connected=%d", 
@@ -229,7 +229,7 @@ void WavinAHC9000::update() {
               // Parse status register (index 0x00) for thermostat connection status
               uint16_t status = regs[ELEM_STATUS];
               bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-              bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
+              bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;  // Not used for logic, only for debug logging
               bool is_tp = (status & ELEM_STATUS_TP_MASK) != 0;
               st.thermostat_connected = this->parse_thermostat_connection_status(regs);
               ESP_LOGD(TAG, "CH%u status=0x%04X ALIVE=%d LOST=%d TP=%d connected=%d", 
@@ -898,7 +898,7 @@ void WavinAHC9000::generate_yaml_suggestion() {
           // Parse status register for thermostat connection status
           uint16_t status = regs[ELEM_STATUS];
           bool is_alive = (status & ELEM_STATUS_ALIVE_MASK) != 0;
-          bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;
+          bool is_lost = (status & ELEM_STATUS_LOST_MASK) != 0;  // Not used for logic, only for debug logging
           bool is_tp = (status & ELEM_STATUS_TP_MASK) != 0;
           st.thermostat_connected = this->parse_thermostat_connection_status(regs);
           ESP_LOGD(TAG, "CH%u setup: status=0x%04X ALIVE=%d LOST=%d TP=%d connected=%d", 
