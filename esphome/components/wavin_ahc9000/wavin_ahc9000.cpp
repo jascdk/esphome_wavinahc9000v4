@@ -1426,6 +1426,18 @@ void WavinAHC9000::publish_updates() {
     }
   }
 
+  // Standby switches (ON when in standby/OFF mode, OFF when in HEAT mode)
+  for (auto &kv : this->standby_switches_) {
+    uint8_t ch = kv.first;
+    auto *sw = kv.second;
+    if (!sw) continue;
+    auto it = this->channels_.find(ch);
+    if (it != this->channels_.end()) {
+      bool is_standby = (it->second.mode == climate::CLIMATE_MODE_OFF);
+      sw->publish_state(is_standby);
+    }
+  }
+
   // Average temperature sensors
   for (auto &avg_sensor : this->average_temperature_sensors_) {
     if (!avg_sensor.sensor) continue;

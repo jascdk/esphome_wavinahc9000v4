@@ -1,0 +1,213 @@
+# Wavin AHC-9000 - Standby Switch Example
+# This example demonstrates the standby mode switch for easier UI control
+
+substitutions:
+  device_name: wavin-heating-standby-switch
+  friendly_name: Wavin Standby Switch Example
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+
+# Climate entities for multiple zones
+climate:
+  # Zone 1 - Living Room
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    id: living_room_climate
+    channel: 1
+    # The climate entity can be controlled with HEAT/OFF modes
+    # But the standby switch provides a more intuitive UI control
+
+  # Zone 2 - Bedroom
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom"
+    id: bedroom_climate
+    channel: 2
+
+  # Zone 3 - Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    id: kitchen_climate
+    channel: 3
+
+# Standby mode switches - Easier UI control for standby mode
+switch:
+  # Individual standby switches
+  # When ON: Zone enters standby mode (climate OFF)
+  # When OFF: Zone returns to heating mode (climate HEAT)
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: standby
+    name: "Living Room Standby"
+    icon: "mdi:power"
+    # Turn this ON to put Living Room in standby mode
+    # Turn this OFF to resume heating in Living Room
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: standby
+    name: "Bedroom Standby"
+    icon: "mdi:power"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: standby
+    name: "Kitchen Standby"
+    icon: "mdi:power"
+  
+  # Master standby switch controlling multiple zones
+  # Turn ON to put all zones in standby mode at once
+  # Turn OFF to resume heating in all zones
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: standby
+    members: [1, 2, 3]
+    name: "Master Standby"
+    icon: "mdi:power-standby"
+
+# Optional: Child lock switches for comparison
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: child_lock
+    name: "Living Room Child Lock"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: child_lock
+    name: "Bedroom Child Lock"
+
+# Temperature sensors
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: temperature
+    name: "Living Room Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: temperature
+    name: "Bedroom Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: temperature
+    name: "Kitchen Temperature"
+
+# Usage Notes:
+# 
+# 1. The standby switch provides a simple ON/OFF control for standby mode
+#    - This is easier to use in Home Assistant UI than changing climate mode
+#    - Works alongside the climate entity's HVAC mode control
+# 
+# 2. Both methods work and are synchronized:
+#    - Turn standby switch ON = Climate mode becomes OFF
+#    - Set climate to OFF mode = Standby switch becomes ON
+#    - Turn standby switch OFF = Climate mode becomes HEAT
+#    - Set climate to HEAT mode = Standby switch becomes OFF
+# 
+# 3. Group standby switches control multiple zones simultaneously
+#    - Useful for "away mode" or "night mode" scenarios
+#    - Turn on master standby to put entire house in energy-saving mode
+# 
+# 4. Automation examples:
+#
+# automation:
+#   # Turn on standby when leaving home
+#   - alias: "Away mode - enable standby"
+#     trigger:
+#       - platform: state
+#         entity_id: binary_sensor.home_occupied
+#         to: "off"
+#         for: "00:30:00"
+#     action:
+#       - service: switch.turn_on
+#         target:
+#           entity_id: switch.master_standby
+# 
+#   # Turn off standby when arriving home
+#   - alias: "Home mode - disable standby"
+#     trigger:
+#       - platform: state
+#         entity_id: binary_sensor.home_occupied
+#         to: "on"
+#     action:
+#       - service: switch.turn_off
+#         target:
+#           entity_id: switch.master_standby
+# 
+#   # Night mode - standby in living room only
+#   - alias: "Night mode - living room standby"
+#     trigger:
+#       - platform: time
+#         at: "23:00:00"
+#     action:
+#       - service: switch.turn_on
+#         target:
+#           entity_id: switch.living_room_standby
+# 
+#   # Morning mode - resume living room heating
+#   - alias: "Morning mode - living room active"
+#     trigger:
+#       - platform: time
+#         at: "06:00:00"
+#     action:
+#       - service: switch.turn_off
+#         target:
+#           entity_id: switch.living_room_standby
