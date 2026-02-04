@@ -113,7 +113,7 @@ void WavinAHC9000::update() {
       bool heating = (regs[0] & CH_TIMER_EVENT_OUTP_ON_MASK) != 0;
       st.action = heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
     }
-    if (!st.all_tp_lost && st.primary_index > 0) {
+    if (st.primary_index > 0) {
       uint8_t elem_page = (uint8_t) (st.primary_index - 1);
       if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
         // Parse status register for thermostat connection status
@@ -217,7 +217,7 @@ void WavinAHC9000::update() {
           break;
         }
         case 4: {
-          if (!st.all_tp_lost && st.primary_index > 0) {
+          if (st.primary_index > 0) {
             uint8_t elem_page = (uint8_t) (st.primary_index - 1);
             if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
               // Parse status register (index 0x00) for thermostat connection status
