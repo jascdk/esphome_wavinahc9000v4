@@ -57,6 +57,24 @@ std::string WavinAHC9000::get_channel_friendly_name(uint8_t channel) const {
   return this->channel_friendly_names_[channel];
 }
 
+std::set<uint8_t> WavinAHC9000::get_group_sibling_channels(uint8_t ch) const {
+  std::set<uint8_t> siblings;
+  auto it = this->channel_to_groups_.find(ch);
+  if (it != this->channel_to_groups_.end()) {
+    // Found groups containing this channel
+    for (const auto *group : it->second) {
+      // Add all members of this group to siblings set
+      const auto &members = group->get_members();
+      for (uint8_t member : members) {
+        if (member != ch) {  // Don't include the channel itself
+          siblings.insert(member);
+        }
+      }
+    }
+  }
+  return siblings;
+}
+
 void WavinAHC9000::update() {
   // If polling is temporarily suspended (after a write), skip until window expires
   if (this->suspend_polling_until_ != 0 && millis() < this->suspend_polling_until_) {

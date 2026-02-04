@@ -123,23 +123,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   }
   
   // Get all sibling channels (other members of the same groups as the given channel)
-  std::set<uint8_t> get_group_sibling_channels(uint8_t ch) const {
-    std::set<uint8_t> siblings;
-    auto it = this->channel_to_groups_.find(ch);
-    if (it != this->channel_to_groups_.end()) {
-      // Found groups containing this channel
-      for (const auto *group : it->second) {
-        // Add all members of this group to siblings set
-        const auto &members = group->get_members();
-        for (uint8_t member : members) {
-          if (member != ch) {  // Don't include the channel itself
-            siblings.insert(member);
-          }
-        }
-      }
-    }
-    return siblings;
-  }
+  std::set<uint8_t> get_group_sibling_channels(uint8_t ch) const;
 
   // Data access
   float get_channel_current_temp(uint8_t channel) const;
