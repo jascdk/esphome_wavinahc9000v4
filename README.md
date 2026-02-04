@@ -5,6 +5,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 ## Features
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
+- **Standby Mode**: Bi-directional OFF mode that activates the thermostat's standby feature
 - **Group Climate**: Create virtual thermostats that control multiple zones together
 - **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity with persistence across restarts
 - **Temperature Sensors**: Room temperature, floor temperature sensors
@@ -124,6 +125,18 @@ wavin_ahc9000:
 - **use_floor_temperature** (*Optional*, default: `false`): Use floor temperature for control
 
 **Note**: Either `channel` (for single zone) or `members` (for group control) must be specified, but not both.
+
+**Climate Modes - OFF/Standby Feature**: The climate entity supports two modes:
+- **HEAT mode**: The thermostat operates in manual mode, maintaining the set target temperature
+- **OFF mode**: The thermostat enters standby mode (energy-saving mode as shown on the physical thermostat)
+
+This feature is **fully bi-directional**:
+- Setting the climate to OFF in Home Assistant → Thermostat enters standby mode
+- Setting standby on the physical thermostat → Climate shows as OFF in Home Assistant
+- Setting the climate to HEAT in Home Assistant → Thermostat returns to manual mode with the previous target temperature
+- Setting manual mode on the physical thermostat → Climate shows as HEAT in Home Assistant
+
+The standby mode allows you to temporarily disable heating for a zone without losing the configured target temperature. When you switch back to HEAT mode, the thermostat automatically returns to the previously set temperature.
 
 ### Sensor Entity (`sensor` platform)
 
