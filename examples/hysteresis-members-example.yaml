@@ -1,0 +1,186 @@
+# Wavin AHC-9000 ESPHome Configuration - Hysteresis with Members Parameter
+# This example demonstrates the new 'members' parameter for hysteresis number entities
+#
+# New Feature: You can now specify channels directly using the 'members' parameter
+# instead of needing to reference a climate entity via 'climate_id'
+#
+# This is useful when you want hysteresis control for multiple channels without
+# creating a group climate entity for them.
+
+substitutions:
+  device_name: wavin-heating-members
+  friendly_name: Wavin Heating Members Test
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+
+# ----------------------
+# Hysteresis Number Entities
+# ----------------------
+number:
+  # NEW APPROACH: Using 'members' parameter directly
+  # This controls hysteresis for channels 2-11 without needing a climate entity
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    members: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    name: "Master Hysteresis"
+    entity_category: config
+  
+  # You can also use it for smaller groups
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    members: [3, 4]
+    name: "Bedrooms Hysteresis"
+    entity_category: config
+  
+  # TRADITIONAL APPROACH: Using 'climate_id' (still works)
+  # This ties hysteresis to an existing climate entity
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: living_room_climate
+    name: "Living Room Hysteresis"
+    entity_category: config
+
+# ----------------------
+# Climate Entities (optional)
+# ----------------------
+climate:
+  # Individual climate for channel 1
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    id: living_room_climate
+    channel: 1
+  
+  # You can have climate entities for the channels you control with hysteresis
+  # but they're not required when using the 'members' parameter
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    channel: 2
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 1"
+    channel: 3
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Bedroom 2"
+    channel: 4
+
+# ----------------------
+# Temperature Sensors (optional)
+# ----------------------
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: temperature
+    name: "Kitchen Temperature"
+
+# ==========================================
+# Configuration Comparison
+# ==========================================
+#
+# BEFORE (requires group climate):
+# ----------------------------------
+# climate:
+#   - platform: wavin_ahc9000
+#     id: master_climate
+#     name: "Master Control"
+#     members: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+#
+# number:
+#   - platform: wavin_ahc9000
+#     climate_id: master_climate  # Must reference climate
+#     name: "Master Hysteresis"
+#
+# AFTER (direct members):
+# ----------------------------------
+# number:
+#   - platform: wavin_ahc9000
+#     members: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]  # Direct specification
+#     name: "Master Hysteresis"
+#
+# ==========================================
+# Benefits
+# ==========================================
+#
+# 1. More Flexible: Don't need to create a climate entity just for hysteresis
+# 2. Cleaner Config: Fewer entities when you only want hysteresis control
+# 3. Independent: Hysteresis control is decoupled from climate entities
+# 4. Still Compatible: Old 'climate_id' approach still works
+#
+# ==========================================
+# Use Cases
+# ==========================================
+#
+# Use 'members' when:
+# - You want hysteresis control without a group climate entity
+# - You're controlling multiple zones but each has its own climate
+# - You want independent hysteresis without affecting climate groups
+#
+# Use 'climate_id' when:
+# - You already have a climate entity you want to tie hysteresis to
+# - You want hysteresis to be logically coupled with a specific climate
+# - You're using single-channel climate entities
+#
+# ==========================================
+# Testing
+# ==========================================
+#
+# 1. Deploy this configuration to your ESP32
+# 2. In Home Assistant, change "Master Hysteresis" value
+# 3. Check ESPHome logs for:
+#    [I][wavin_ahc9000.number:xxx] Writing hysteresis 0.5°C to 10 channel(s)
+#    [I][wavin_ahc9000:xxx] Hysteresis written to thermostat: ch=2 value=0.5°C
+#    [I][wavin_ahc9000:xxx] Hysteresis written to thermostat: ch=3 value=0.5°C
+#    ... (continues for all channels 2-11)
+# 4. All specified channels should have the same hysteresis value

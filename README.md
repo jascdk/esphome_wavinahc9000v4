@@ -170,10 +170,13 @@ sensor:
 ### Number Entity (`number` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **climate_id** (*Required*): ID of the climate entity to control
+- **climate_id** (*Optional*): ID of the climate entity to control
+- **members** (*Optional*): List of channel numbers to control (alternative to climate_id)
 - **type** (*Optional*, default: `hysteresis`): Number type (currently only `hysteresis`)
 
-**Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for a climate entity. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
+**Note**: Either `climate_id` OR `members` must be specified, but not both.
+
+**Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for one or more channels. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
 
 - **Range**: 0.1 to 2.0°C (clamped for safety)
 - **Step**: 0.1°C
@@ -196,9 +199,11 @@ This ensures both the UI state and the physical heating behavior are synchronize
 
 **Group Propagation Example**: If channels 3 and 4 are members of a "Bedrooms" group, changing the hysteresis for channel 3 will automatically update channel 4's hysteresis as well. This keeps all thermostats in the group synchronized. See [HYSTERESIS_GROUP_PROPAGATION.md](HYSTERESIS_GROUP_PROPAGATION.md) for detailed information.
 
-**Note**: Each climate entity (both single channel and group) can have its own hysteresis control.
+**Configuration Options**:
 
-Example:
+You can configure hysteresis control in two ways:
+
+1. **Via Climate Entity** (traditional approach):
 ```yaml
 climate:
   - platform: wavin_ahc9000
@@ -212,6 +217,24 @@ number:
     wavin_ahc9000_id: wavin_controller
     climate_id: living_room_climate
     name: "Living Room Hysteresis"
+    type: hysteresis
+```
+
+2. **Via Direct Members** (new approach):
+```yaml
+number:
+  # Control hysteresis for multiple channels without a climate entity
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    members: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    name: "Master Hysteresis"
+    type: hysteresis
+  
+  # Or for a smaller group
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    members: [3, 4]
+    name: "Bedrooms Hysteresis"
     type: hysteresis
 ```
 
