@@ -5,6 +5,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 ## Features
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
+- **Standby Mode**: Bi-directional OFF mode that activates the thermostat's standby feature
 - **Group Climate**: Create virtual thermostats that control multiple zones together
 - **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity with persistence across restarts
 - **Temperature Sensors**: Room temperature, floor temperature sensors
@@ -125,6 +126,18 @@ wavin_ahc9000:
 
 **Note**: Either `channel` (for single zone) or `members` (for group control) must be specified, but not both.
 
+**Climate Modes - OFF/Standby Feature**: The climate entity supports two modes:
+- **HEAT mode**: The thermostat operates in manual mode, maintaining the set target temperature
+- **OFF mode**: The thermostat enters standby mode (energy-saving mode as shown on the physical thermostat)
+
+This feature is **fully bi-directional**:
+- Setting the climate to OFF in Home Assistant → Thermostat enters standby mode
+- Setting standby on the physical thermostat → Climate shows as OFF in Home Assistant
+- Setting the climate to HEAT in Home Assistant → Thermostat returns to manual mode with the previous target temperature
+- Setting manual mode on the physical thermostat → Climate shows as HEAT in Home Assistant
+
+The standby mode allows you to temporarily disable heating for a zone without losing the configured target temperature. When you switch back to HEAT mode, the thermostat automatically returns to the previously set temperature.
+
 ### Sensor Entity (`sensor` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
@@ -162,15 +175,22 @@ sensor:
 
 **Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for a climate entity. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
 
-- **Range**: 0.1 to 1.0°C
+- **Range**: 0.1 to 2.0°C (clamped for safety)
 - **Step**: 0.1°C
 - **Default**: 0.3°C
 - **Persistence**: Values are automatically saved to flash memory and restored after ESP32 restart
+- **Scope**: Written to both ESPHome (for display) AND the physical thermostat (PACKED register 0x0E)
 
 The hysteresis value works as follows:
 - When `current_temperature > target_temperature + hysteresis`: Action is IDLE
 - When `current_temperature < target_temperature - hysteresis`: Action is HEATING
 - Within the deadband: Action remains unchanged (prevents oscillation)
+
+**Important**: When you change the hysteresis value in Home Assistant, it is written to:
+1. **ESPHome memory**: For calculating the displayed climate action (HEATING/IDLE)
+2. **Physical thermostat**: Via Modbus to PACKED register 0x0E, affecting the actual relay control
+
+This ensures both the UI state and the physical heating behavior are synchronized.
 
 **Note**: Each climate entity (both single channel and group) can have its own hysteresis control.
 

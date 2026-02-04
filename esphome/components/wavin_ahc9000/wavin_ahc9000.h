@@ -81,6 +81,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // Write floor temperature limits (Celsius), clamped to sane bounds
   void write_channel_floor_min_temperature(uint8_t channel, float celsius);
   void write_channel_floor_max_temperature(uint8_t channel, float celsius);
+  // Write hysteresis (temperature control loop deadband) in Celsius
+  void write_channel_hysteresis(uint8_t channel, float celsius);
   void refresh_channel_now(uint8_t channel);
   void set_strict_mode_write(uint8_t channel, bool enable);
   bool is_strict_mode_write(uint8_t channel) const;
@@ -261,6 +263,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // Inferred from field dump: floor min/max setpoints exposed in PACKED page
   static constexpr uint8_t PACKED_FLOOR_MIN_TEMPERATURE = 0x0A; // 21.5C example
   static constexpr uint8_t PACKED_FLOOR_MAX_TEMPERATURE = 0x0B; // 25.5C example
+  static constexpr uint8_t PACKED_HYSTERESIS = 0x0E; // Temperature control loop hysteresis (0.1°C per LSB)
+  // Hysteresis value limits (Celsius)
+  static constexpr float HYSTERESIS_MIN = 0.1f; // Minimum hysteresis (0.1°C)
+  static constexpr float HYSTERESIS_MAX = 2.0f; // Maximum hysteresis (2.0°C)
   // Note: PACKED_FLOOR_MIN_TEMPERATURE and PACKED_FLOOR_MAX_TEMPERATURE are contiguous; reads
   // have been consolidated (count=2 starting at MIN) to reduce RS485 transactions.
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x07;
@@ -372,6 +378,11 @@ class WavinZoneClimate : public climate::Climate, public Component {
   }
   void set_hysteresis(float h) { this->hysteresis_ = h; }
   float get_hysteresis() const { return this->hysteresis_; }
+  
+  // Helper methods for hysteresis number entity to access channel info
+  bool is_single_channel() const { return this->single_channel_set_; }
+  uint8_t get_single_channel() const { return this->single_channel_; }
+  const std::vector<uint8_t>& get_members() const { return this->members_; }
 
   void dump_config() override;
 
@@ -404,6 +415,8 @@ class WavinHysteresisNumber : public number::Number, public Component {
       if (this->climate_ != nullptr) {
         this->climate_->set_hysteresis(value);
       }
+      // Write to thermostat on startup
+      this->write_to_thermostat(value);
       this->publish_state(value);
       ESP_LOGD("wavin_ahc9000.number", "Restored hysteresis: %.1f°C", value);
     } else {
@@ -413,6 +426,8 @@ class WavinHysteresisNumber : public number::Number, public Component {
         this->publish_state(current);
         // Save the default value
         this->pref_.save(&current);
+        // Write to thermostat
+        this->write_to_thermostat(current);
         ESP_LOGD("wavin_ahc9000.number", "Initialized hysteresis: %.1f°C", current);
       }
     }
@@ -427,6 +442,27 @@ class WavinHysteresisNumber : public number::Number, public Component {
       // Save to flash for persistence across restarts
       this->pref_.save(&value);
       ESP_LOGD("wavin_ahc9000.number", "Saved hysteresis: %.1f°C", value);
+      // Write to physical thermostat
+      this->write_to_thermostat(value);
+    }
+  }
+
+  void write_to_thermostat(float value) {
+    // Write hysteresis to all channels controlled by this climate entity
+    if (this->parent_ == nullptr || this->climate_ == nullptr) return;
+    
+    // Get the channel(s) from the climate entity
+    if (this->climate_->is_single_channel()) {
+      uint8_t ch = this->climate_->get_single_channel();
+      ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to thermostat channel %u", value, (unsigned) ch);
+      this->parent_->write_channel_hysteresis(ch, value);
+    } else {
+      // For group climates, write to all member channels
+      const auto &members = this->climate_->get_members();
+      ESP_LOGI("wavin_ahc9000.number", "Writing hysteresis %.1f°C to thermostat for %zu channels", value, members.size());
+      for (auto ch : members) {
+        this->parent_->write_channel_hysteresis(ch, value);
+      }
     }
   }
 
