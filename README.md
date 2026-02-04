@@ -11,6 +11,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
 - **Child Lock**: Control and monitor child lock status per zone
+- **Group Child Lock**: Create master switches that control child locks across multiple zones
 - **Device Information**: Read controller hardware/software version, address, and device name
 
 ## Hardware Requirements
@@ -133,8 +134,31 @@ sensor:
 ### Switch Entity (`switch` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **channel** (*Required*): Channel number (1-16)
+- **channel** (*Optional*): Single channel number (1-16)
+- **members** (*Optional*): List of channel numbers for group control
 - **type** (*Optional*, default: `child_lock`): Switch type (currently only `child_lock`)
+
+**Note**: Either `channel` (for single zone) or `members` (for group control) should be specified, but not both.
+
+**Group Control**: The `members` parameter allows you to create a master switch that controls the child lock state for multiple channels simultaneously. When enabled, all member channels will have their child locks activated; when disabled, all will be deactivated.
+
+Example:
+```yaml
+switch:
+  # Single channel child lock
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 3
+    type: child_lock
+    name: "Zone 3 Lock"
+  
+  # Group child lock controlling multiple zones
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: child_lock
+    members: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+    name: "Master Lock"
+```
 
 ### Text Sensor (`text_sensor` platform)
 

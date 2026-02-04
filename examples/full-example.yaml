@@ -168,6 +168,7 @@ sensor:
 
 # Child lock switches
 switch:
+  # Individual child lock switches
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     channel: 1
@@ -185,6 +186,13 @@ switch:
     channel: 3
     type: child_lock
     name: "Bedroom 1 Child Lock"
+  
+  # Group child lock: Control multiple zones with one switch
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: child_lock
+    members: [1, 2, 3, 4]
+    name: "Master Child Lock"
 
 # Device information text sensors
 text_sensor:

@@ -64,6 +64,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void write_group_setpoint(const std::vector<uint8_t> &members, float celsius);
   void write_channel_mode(uint8_t channel, climate::ClimateMode mode);
   void write_channel_child_lock(uint8_t channel, bool enable);
+  void write_group_child_lock(const std::vector<uint8_t> &members, bool enable);
   // Write floor temperature limits (Celsius), clamped to sane bounds
   void write_channel_floor_min_temperature(uint8_t channel, float celsius);
   void write_channel_floor_max_temperature(uint8_t channel, float celsius);
@@ -257,16 +258,27 @@ class WavinChildLockSwitch : public switch_::Switch {
  public:
   void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
   void set_channel(uint8_t ch) { this->channel_ = ch; }
+  void set_members(const std::vector<int> &members) {
+    this->members_.clear();
+    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
+  }
  protected:
   void write_state(bool state) override {
     if (this->parent_ != nullptr) {
-      this->parent_->write_channel_child_lock(this->channel_, state);
+      if (!this->members_.empty()) {
+        // Group switch: write to all members
+        this->parent_->write_group_child_lock(this->members_, state);
+      } else if (this->channel_ != 0) {
+        // Single channel switch
+        this->parent_->write_channel_child_lock(this->channel_, state);
+      }
     }
     // Optimistic publish; hub publish_updates() will correct after refresh.
     this->publish_state(state);
   }
   WavinAHC9000 *parent_{nullptr};
   uint8_t channel_{0};
+  std::vector<uint8_t> members_{};
 };
 
 // Inline helpers for configuring sensors
