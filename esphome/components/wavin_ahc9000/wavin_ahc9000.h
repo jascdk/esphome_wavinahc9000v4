@@ -3,6 +3,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/components/number/number.h"
 #include "esphome/components/time/real_time_clock.h"
 #include "esphome/core/component.h"
 
@@ -17,11 +18,13 @@ namespace sensor { class Sensor; }
 namespace switch_ { class Switch; }
 namespace text_sensor { class TextSensor; }
 namespace binary_sensor { class BinarySensor; }
+namespace number { class Number; }
 namespace wavin_ahc9000 {
 
 // Forward
 class WavinZoneClimate;
 class WavinChildLockSwitch;
+class WavinHysteresisNumber;
 
 class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
  public:
@@ -388,6 +391,8 @@ class WavinZoneClimate : public climate::Climate, public Component {
     for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
     this->single_channel_set_ = false;
   }
+  void set_hysteresis(float h) { this->hysteresis_ = h; }
+  float get_hysteresis() const { return this->hysteresis_; }
 
   void dump_config() override;
 
@@ -402,6 +407,34 @@ class WavinZoneClimate : public climate::Climate, public Component {
   bool single_channel_set_{false};
   std::vector<uint8_t> members_{};
   bool use_floor_temperature_{false};
+  float hysteresis_{0.3f};  // default 0.3°C, configurable 0.1-1.0°C
+};
+
+// Hysteresis Number for controlling climate hysteresis value
+class WavinHysteresisNumber : public number::Number, public Component {
+ public:
+  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
+  void set_climate(WavinZoneClimate *c) { this->climate_ = c; }
+  
+  void setup() override {
+    // Initialize with current climate hysteresis value
+    if (this->climate_ != nullptr) {
+      float current = this->climate_->get_hysteresis();
+      this->publish_state(current);
+    }
+  }
+
+ protected:
+  void control(float value) override {
+    // Update the climate entity's hysteresis when value changes
+    if (this->climate_ != nullptr) {
+      this->climate_->set_hysteresis(value);
+      this->publish_state(value);
+    }
+  }
+
+  WavinAHC9000 *parent_{nullptr};
+  WavinZoneClimate *climate_{nullptr};
 };
 
 // Repair button removed; use API service to normalize

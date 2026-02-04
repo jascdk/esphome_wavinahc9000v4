@@ -80,12 +80,14 @@ climate:
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Living Room"
+    id: living_room_climate
     channel: 1
   
   # Zone 2: Kitchen
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Kitchen"
+    id: kitchen_climate
     channel: 2
     use_floor_temperature: true  # Use floor sensor for this zone
   
@@ -93,19 +95,55 @@ climate:
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Bedroom 1"
+    id: bedroom1_climate
     channel: 3
   
   # Zone 4: Bedroom 2
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Bedroom 2"
+    id: bedroom2_climate
     channel: 4
   
   # Group climate: Control bedrooms together
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "All Bedrooms"
+    id: bedrooms_climate
     members: [3, 4]
+
+# Hysteresis controls for climate entities
+# Allows adjusting temperature deadband from 0.1 to 1.0°C
+number:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: living_room_climate
+    name: "Living Room Hysteresis"
+    type: hysteresis
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: kitchen_climate
+    name: "Kitchen Hysteresis"
+    type: hysteresis
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedroom1_climate
+    name: "Bedroom 1 Hysteresis"
+    type: hysteresis
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedroom2_climate
+    name: "Bedroom 2 Hysteresis"
+    type: hysteresis
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedrooms_climate
+    name: "Bedrooms Group Hysteresis"
+    type: hysteresis
 
 # Temperature sensors
 sensor:

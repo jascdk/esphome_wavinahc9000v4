@@ -6,6 +6,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Group Climate**: Create virtual thermostats that control multiple zones together
+- **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity
 - **Temperature Sensors**: Room temperature, floor temperature sensors
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
@@ -152,6 +153,42 @@ sensor:
     type: average_temperature
     members: [1, 2, 3, 4]  # Average of channels 1-4
     name: "House Average Temperature"
+```
+
+### Number Entity (`number` platform)
+
+- **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
+- **climate_id** (*Required*): ID of the climate entity to control
+- **type** (*Optional*, default: `hysteresis`): Number type (currently only `hysteresis`)
+
+**Hysteresis Control**: The `hysteresis` number entity allows you to adjust the temperature deadband (hysteresis) for a climate entity. The hysteresis value determines how far the current temperature must deviate from the target temperature before the heating action changes between HEATING and IDLE states. This helps prevent rapid cycling of the heating system.
+
+- **Range**: 0.1 to 1.0°C
+- **Step**: 0.1°C
+- **Default**: 0.3°C
+
+The hysteresis value works as follows:
+- When `current_temperature > target_temperature + hysteresis`: Action is IDLE
+- When `current_temperature < target_temperature - hysteresis`: Action is HEATING
+- Within the deadband: Action remains unchanged (prevents oscillation)
+
+**Note**: Each climate entity (both single channel and group) can have its own hysteresis control.
+
+Example:
+```yaml
+climate:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    id: living_room_climate
+    channel: 1
+
+number:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: living_room_climate
+    name: "Living Room Hysteresis"
+    type: hysteresis
 ```
 
 ### Binary Sensor Entity (`binary_sensor` platform)

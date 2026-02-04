@@ -1,16 +1,17 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, climate, time
+from esphome.components import uart, climate, time, number
 from esphome.const import CONF_ID, CONF_TIME_ID
 from esphome import pins
 
 CODEOWNERS = ["@jascdk"]
 # Ensure dependent component code is compiled so their headers are available.
-AUTO_LOAD = ["climate", "uart", "sensor", "switch", "text_sensor"]
+AUTO_LOAD = ["climate", "uart", "sensor", "switch", "text_sensor", "number"]
 
 ns = cg.esphome_ns.namespace("wavin_ahc9000")
 WavinAHC9000 = ns.class_("WavinAHC9000", cg.PollingComponent, uart.UARTDevice)
 WavinZoneClimate = ns.class_("WavinZoneClimate", climate.Climate, cg.Component)
+WavinHysteresisNumber = ns.class_("WavinHysteresisNumber", number.Number, cg.Component)
 
 CONF_UART_ID = "uart_id"
 CONF_TX_ENABLE_PIN = "tx_enable_pin"

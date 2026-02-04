@@ -1,5 +1,5 @@
-# Basic Wavin AHC-9000 ESPHome Configuration
-# This example shows a minimal setup with a single zone
+# Wavin AHC-9000 ESPHome Configuration with Hysteresis Control
+# This example shows how to use the hysteresis number component
 
 substitutions:
   device_name: wavin-heating
@@ -46,42 +46,61 @@ uart:
   baud_rate: 38400
   parity: EVEN
 
-# Optional: Configure time component for clock synchronization
-time:
-  - platform: homeassistant
-    id: ha_time
-
 # Configure the Wavin AHC-9000 component
 wavin_ahc9000:
   id: wavin_controller
   uart_id: uart_bus
   update_interval: 5s
-  # Optional: GPIO pin to enable RS485 transmission (DE/RE pin on RS485 module)
   tx_enable_pin: GPIO5
   flow_control_pin: GPIO5
-  # Optional: Clock synchronization with Home Assistant time
-  time_id: ha_time
-  sync_clock_on_connect: true
-  clock_sync_interval: 24h
   
-# Add climate control for zone 1 (Living Room)
+# Climate entities
 climate:
+  # Zone 1: Living Room - with hysteresis control
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     name: "Living Room"
     id: living_room_climate
     channel: 1
+  
+  # Zone 2: Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    id: kitchen_climate
+    channel: 2
+  
+  # Group climate: All Bedrooms - with hysteresis control
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "All Bedrooms"
+    id: bedrooms_climate
+    members: [3, 4]
 
-# Optional: Add hysteresis control for the climate entity (0.1-1.0°C)
-# Adjusts the temperature deadband to prevent rapid heating on/off cycles
+# Hysteresis number entities for controlling temperature deadband (0.1-1.0°C)
 number:
+  # Hysteresis control for Living Room
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     climate_id: living_room_climate
     name: "Living Room Hysteresis"
     type: hysteresis
+  
+  # Hysteresis control for Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: kitchen_climate
+    name: "Kitchen Hysteresis"
+    type: hysteresis
+  
+  # Hysteresis control for All Bedrooms group
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedrooms_climate
+    name: "Bedrooms Hysteresis"
+    type: hysteresis
 
-# Optional: Add temperature sensor for zone 1
+# Optional: Temperature sensors
 sensor:
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
@@ -89,39 +108,8 @@ sensor:
     type: temperature
     name: "Living Room Temperature"
   
-  # Optional: Add battery level sensor (for wireless thermostats)
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: battery
-    name: "Living Room Battery"
-
-# Optional: Add child lock switch
-switch:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    channel: 1
-    type: child_lock
-    name: "Living Room Child Lock"
-
-# Optional: Device information text sensors
-text_sensor:
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: control_unit_address
-    name: "Control Unit Address"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: hw_version
-    name: "Hardware Version"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: sw_version
-    name: "Software Version"
-  
-  - platform: wavin_ahc9000
-    wavin_ahc9000_id: wavin_controller
-    type: device_name
-    name: "Device Name"
+    channel: 2
+    type: temperature
+    name: "Kitchen Temperature"
