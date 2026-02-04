@@ -279,7 +279,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // Bits [2:0] = MODE field (see mode constants below)
   // Bit 4 (0x0010) = SCHED_ENA (schedule enable: 0=manual modes, 1=schedule-based modes)
   // Bit 11 (0x0800) = CHILD_LOCK
-  // Bit 14 (0x4000) = Always set in strict mode writes (0x4000 baseline)
+  // Bit 14 (0x4000) = Configuration baseline bit (set in strict writes, represents a known-good state)
   
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_MASK = 0x07;          // Bits [2:0]: MODE field
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_MANUAL = 0x00;        // MODE=000: Manual mode

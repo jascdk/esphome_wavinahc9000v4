@@ -756,16 +756,16 @@ void WavinAHC9000::write_channel_mode(uint8_t channel, climate::ClimateMode mode
   if (channel < 1 || channel > 16) return;
   uint8_t page = (uint8_t) (channel - 1);
   this->desired_mode_[channel] = mode;
-  // Always use strict baseline to 0x4000 with SCHED_ENA=0 for reliable OFF/HEAT manual modes
-  // Per Wavin spec: 0x4000 = bit 14 set, SCHED_ENA (bit 4) = 0, MODE bits [2:0] = 000 or 001
-  // IMPORTANT: Clear SCHED_ENA (bit 4) to ensure manual control mode (not schedule-based)
+  // Strict write: Use known-good baseline 0x4000 with appropriate MODE bits
+  // 0x4000 = bit 14 set (baseline), bit 4 (SCHED_ENA) = 0, other bits = 0
+  // This provides reliable manual control by clearing all scheduling/program flags
   bool ok = false;
   {
     uint16_t strict_val = (uint16_t) (0x4000 | (mode == climate::CLIMATE_MODE_OFF ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL));
     ok = this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, strict_val);
   }
   if (!ok) {
-    // Fallback: read-modify-write full register (clear SCHED_ENA and update MODE bits)
+    // Fallback: read-modify-write to preserve other bits (e.g., CHILD_LOCK) if strict write fails
     std::vector<uint16_t> regs;
     if (this->read_registers(CAT_PACKED, page, PACKED_CONFIGURATION, 1, regs) && regs.size() >= 1) {
       uint16_t current = regs[0];
