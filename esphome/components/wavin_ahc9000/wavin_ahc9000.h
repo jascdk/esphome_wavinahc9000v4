@@ -624,7 +624,7 @@ class WavinTempLowNumber : public number::Number, public Component {
     }
   }
 
-  static constexpr float DEFAULT_ECO_TEMP = 18.0f;
+  static constexpr float DEFAULT_ECO_TEMP = 6.0f;
   WavinAHC9000 *parent_{nullptr};
   std::vector<uint8_t> members_{};
   ESPPreferenceObject pref_;
@@ -682,7 +682,7 @@ class WavinTempHighNumber : public number::Number, public Component {
     }
   }
 
-  static constexpr float DEFAULT_COMFORT_TEMP = 22.0f;
+  static constexpr float DEFAULT_COMFORT_TEMP = 40.0f;
   WavinAHC9000 *parent_{nullptr};
   std::vector<uint8_t> members_{};
   ESPPreferenceObject pref_;
