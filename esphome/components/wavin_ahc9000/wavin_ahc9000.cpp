@@ -2,6 +2,8 @@
 #include "esphome/core/log.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/text_sensor/text_sensor.h"
+#include "esphome/core/time.h"
+#include "esphome/core/application.h"
 #include <vector>
 #include <cmath>
 #include <algorithm>
@@ -30,6 +32,15 @@ void WavinAHC9000::setup() {
   ESP_LOGCONFIG(TAG, "Wavin AHC9000 hub setup");
   // Read device info at startup
   this->read_device_info();
+  
+  // Sync clock on connect if configured
+  if (this->sync_clock_on_connect_ && !this->time_id_.empty()) {
+    // Delay initial sync slightly to allow time component to initialize
+    this->set_timeout(2000, [this]() {
+      ESP_LOGI(TAG, "Initial clock sync on connect");
+      this->sync_clock_now();
+    });
+  }
 }
 void WavinAHC9000::loop() {}
 
@@ -247,6 +258,89 @@ void WavinAHC9000::update() {
 
   // publish once per cycle
   this->publish_updates();
+
+  // Check if we need to sync the clock periodically
+  if (!this->time_id_.empty() && this->clock_sync_interval_ > 0) {
+    uint32_t now = millis();
+    // Check if it's time for periodic sync (after initial sync)
+    if (this->clock_synced_once_ && (now - this->last_clock_sync_) >= (this->clock_sync_interval_ * 1000)) {
+      ESP_LOGD(TAG, "Periodic clock sync triggered");
+      this->sync_clock_now();
+    }
+  }
+}
+
+bool WavinAHC9000::sync_clock_now() {
+  if (this->time_id_.empty()) {
+    ESP_LOGW(TAG, "Clock sync requested but no time source configured");
+    return false;
+  }
+
+  // Get current time from ESPHome time component
+  auto time_id = App.get_time_by_name(this->time_id_);
+  if (time_id == nullptr) {
+    ESP_LOGW(TAG, "Time component '%s' not found", this->time_id_.c_str());
+    return false;
+  }
+
+  auto now = time_id->now();
+  if (!now.is_valid()) {
+    ESP_LOGD(TAG, "Time not yet valid, skipping clock sync");
+    return false;
+  }
+
+  // Prepare clock register values
+  std::vector<uint16_t> clock_values;
+  clock_values.reserve(CLOCK_REGISTER_COUNT);
+  
+  // Year (2001-2099)
+  uint16_t year = now.year;
+  if (year < 2001 || year > 2099) {
+    ESP_LOGW(TAG, "Year %u out of range (2001-2099), cannot sync clock", (unsigned) year);
+    return false;
+  }
+  clock_values.push_back(year);
+  
+  // Month (1-12)
+  clock_values.push_back(now.month);
+  
+  // Day of month (1-31)
+  clock_values.push_back(now.day_of_month);
+  
+  // Day of week (0-6, 0=Monday, 6=Sunday)
+  // ESPHome: 1=Sunday, 2=Monday, ..., 7=Saturday
+  // Wavin:   0=Monday, 1=Tuesday, ..., 6=Sunday
+  uint8_t dow_wavin = (now.day_of_week == 1) ? 6 : (now.day_of_week - 2);
+  clock_values.push_back(dow_wavin);
+  
+  // Hour (0-23)
+  clock_values.push_back(now.hour);
+  
+  // Minute (0-59)
+  clock_values.push_back(now.minute);
+  
+  // Second (0-59)
+  clock_values.push_back(now.second);
+
+  // Day of week string lookup (ESPHome: 1=Sunday, 2=Monday, ..., 7=Saturday)
+  static const char* days[] = {"?", "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  const char* day_str = (now.day_of_week >= 1 && now.day_of_week <= 7) ? days[now.day_of_week] : "?";
+
+  ESP_LOGI(TAG, "Syncing clock: %04u-%02u-%02u %s %02u:%02u:%02u", 
+           (unsigned) year, (unsigned) now.month, (unsigned) now.day_of_month,
+           day_str, (unsigned) now.hour, (unsigned) now.minute, (unsigned) now.second);
+
+  bool success = this->write_clock_registers(clock_values);
+  if (success) {
+    this->last_clock_sync_ = millis();
+    this->clock_synced_once_ = true;
+    ESP_LOGI(TAG, "Clock synchronized successfully to %04u-%02u-%02u %02u:%02u:%02u",
+             (unsigned) year, (unsigned) now.month, (unsigned) now.day_of_month,
+             (unsigned) now.hour, (unsigned) now.minute, (unsigned) now.second);
+  } else {
+    ESP_LOGW(TAG, "Failed to synchronize clock");
+  }
+  return success;
 }
 
 void WavinAHC9000::dump_config() { ESP_LOGCONFIG(TAG, "Wavin AHC9000 (UART test read)"); }
@@ -498,6 +592,79 @@ bool WavinAHC9000::write_masked_register(uint8_t category, uint8_t page, uint8_t
       ESP_LOGD(TAG, "ACK-WM: timeout attempt %u (cat=%u idx=%u page=%u) -> retry", (unsigned) attempt + 1, category, index, page);
     }
   next_wm_attempt:;
+  }
+  return false;
+}
+
+bool WavinAHC9000::write_clock_registers(const std::vector<uint16_t> &values) {
+  // Write all 7 clock registers at once as per spec requirement
+  if (values.size() != CLOCK_REGISTER_COUNT) {
+    ESP_LOGW(TAG, "Clock write requires exactly %u values, got %u", CLOCK_REGISTER_COUNT, (unsigned) values.size());
+    return false;
+  }
+
+  for (uint8_t attempt = 0; attempt < IO_RETRY_ATTEMPTS; attempt++) {
+    // Message format: ADDR(1) FC(1) CAT(1) IDX(1) PAGE(1) COUNT(1) DATA(14) CRC(2) = 22 bytes
+    uint8_t msg[22];
+    msg[0] = DEVICE_ADDR;
+    msg[1] = FC_WRITE;
+    msg[2] = CAT_CLOCK;
+    msg[3] = CLOCK_YEAR;  // start at first register
+    msg[4] = 0x00;        // page 0
+    msg[5] = CLOCK_REGISTER_COUNT;  // write all 7 registers
+    
+    // Pack the 7 register values (14 bytes)
+    for (uint8_t i = 0; i < CLOCK_REGISTER_COUNT; i++) {
+      msg[6 + i * 2] = (uint8_t) (values[i] >> 8);
+      msg[7 + i * 2] = (uint8_t) (values[i] & 0xFF);
+    }
+    
+    uint16_t crc = crc16(msg, 20);
+    msg[20] = (uint8_t) (crc & 0xFF);
+    msg[21] = (uint8_t) (crc >> 8);
+
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(true);
+    if (this->tx_enable_pin_ != nullptr) this->tx_enable_pin_->digital_write(true);
+    ESP_LOGD(TAG, "TX-CLOCK: Writing %u registers attempt=%u", CLOCK_REGISTER_COUNT, (unsigned) attempt + 1);
+    this->write_array(msg, 22);
+    this->flush();
+    delayMicroseconds(250);
+    if (this->tx_enable_pin_ != nullptr) this->tx_enable_pin_->digital_write(false);
+    if (this->flow_control_pin_ != nullptr) this->flow_control_pin_->digital_write(false);
+
+    std::vector<uint8_t> buf;
+    uint32_t start = millis();
+    while (millis() - start < this->receive_timeout_ms_) {
+      while (this->available()) {
+        int c = this->read();
+        if (c < 0) break;
+        buf.push_back((uint8_t) c);
+        if (buf.size() >= 5) {
+          uint8_t expected = (uint8_t) (buf[2] + 5);
+          if (buf[0] == DEVICE_ADDR && buf[1] == FC_WRITE && buf.size() == expected) {
+            uint16_t rcrc = crc16(buf.data(), buf.size());
+            bool ok = (rcrc == 0);
+            if (!ok) {
+              if (attempt + 1 == IO_RETRY_ATTEMPTS) {
+                ESP_LOGW(TAG, "ACK-CLOCK: CRC mismatch after %u attempts", (unsigned) IO_RETRY_ATTEMPTS);
+              } else {
+                ESP_LOGD(TAG, "ACK-CLOCK: CRC mismatch attempt %u -> retry", (unsigned) attempt + 1);
+              }
+              goto next_clock_attempt;
+            }
+            ESP_LOGI(TAG, "Clock registers written successfully");
+            return true;
+          }
+        }
+      }
+      delay(1);
+    }
+    if (attempt + 1 == IO_RETRY_ATTEMPTS) {
+      ESP_LOGW(TAG, "ACK-CLOCK: timeout after %u attempts", (unsigned) IO_RETRY_ATTEMPTS);
+    } else {
+      ESP_LOGD(TAG, "ACK-CLOCK: timeout attempt %u -> retry", (unsigned) attempt + 1);
+    }
+  next_clock_attempt:;
   }
   return false;
 }

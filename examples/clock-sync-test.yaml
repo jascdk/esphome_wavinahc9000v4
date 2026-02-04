@@ -1,0 +1,56 @@
+# Test Configuration - Clock Synchronization Feature
+# This file tests the clock sync feature with Home Assistant time
+
+esphome:
+  name: test-wavin-clock
+
+esp32:
+  board: esp32dev
+
+# Reference the component from local repository for testing
+external_components:
+  - source:
+      type: local
+      path: ../
+    components: [wavin_ahc9000]
+
+logger:
+  level: DEBUG
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ssid: "test"
+  password: "test"
+
+# Configure time component for clock synchronization
+time:
+  - platform: homeassistant
+    id: ha_time
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Wavin AHC-9000 with clock synchronization enabled
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  # Clock sync configuration
+  time_id: ha_time
+  sync_clock_on_connect: true
+  clock_sync_interval: 1h
+
+climate:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Test Zone"
+    channel: 1

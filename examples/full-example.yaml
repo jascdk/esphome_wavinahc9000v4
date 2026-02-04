@@ -46,6 +46,11 @@ uart:
   baud_rate: 38400
   parity: EVEN
 
+# Configure time component for clock synchronization
+time:
+  - platform: homeassistant
+    id: ha_time
+
 # Configure the Wavin AHC-9000 component with all options
 wavin_ahc9000:
   id: wavin_controller
@@ -59,6 +64,10 @@ wavin_ahc9000:
   receive_timeout_ms: 1000
   poll_channels_per_cycle: 2
   allow_mode_writes: true
+  # Clock synchronization with Home Assistant time
+  time_id: ha_time
+  sync_clock_on_connect: true
+  clock_sync_interval: 24h
   # Optional: Set friendly names for channels
   channel_01_friendly_name: "Living Room"
   channel_02_friendly_name: "Kitchen"

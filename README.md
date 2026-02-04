@@ -13,6 +13,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Child Lock**: Control and monitor child lock status per zone
 - **Group Child Lock**: Create master switches that control child locks across multiple zones
 - **Device Information**: Read controller hardware/software version, address, and device name
+- **Clock Synchronization**: Sync the controller's internal clock with Home Assistant time
 
 ## Hardware Requirements
 
@@ -93,6 +94,25 @@ climate:
 - **poll_channels_per_cycle** (*Optional*, default: `2`): Number of channels to poll per cycle
 - **allow_mode_writes** (*Optional*, default: `true`): Allow climate mode changes
 - **channel_XX_friendly_name** (*Optional*): Friendly name for channel XX (01-16)
+- **time_id** (*Optional*): ID of the ESPHome time component to use for clock synchronization
+- **sync_clock_on_connect** (*Optional*, default: `false`): Sync controller clock on connect
+- **clock_sync_interval** (*Optional*): Periodic clock sync interval (e.g., `1h`, `24h`)
+
+**Clock Synchronization**: The Wavin AHC-9000 controller has an internal clock that can be programmed via Modbus. You can synchronize this clock with Home Assistant's time by configuring a time component (e.g., `homeassistant` or `sntp`) and enabling clock sync. The clock is written atomically (all 7 registers at once) to prevent inconsistencies.
+
+Example:
+```yaml
+time:
+  - platform: homeassistant
+    id: ha_time
+
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  time_id: ha_time
+  sync_clock_on_connect: true
+  clock_sync_interval: 24h
+```
 
 ### Climate Entity (`climate` platform)
 
@@ -171,6 +191,58 @@ switch:
   - `device_name`: Device name (e.g., AC-116)
 
 **Device Info Sensors**: The control unit address, hardware version, software version, and device name are read once during startup from the Info category registers (0x09) as specified in the Modbus documentation. These provide identification information about the Wavin AHC-9000 controller.
+
+## Clock Synchronization
+
+The Wavin AHC-9000 controller has an internal real-time clock (RTC) that can be programmed via Modbus. This feature allows you to keep the controller's clock synchronized with Home Assistant's time, ensuring that any time-based schedules or logs on the controller are accurate.
+
+### How It Works
+
+The clock synchronization feature:
+- Reads the current date and time from an ESPHome time component (e.g., `homeassistant` or `sntp`)
+- Writes all 7 clock registers atomically (Year, Month, Day, Day of Week, Hour, Minute, Second)
+- Supports automatic sync on startup and periodic sync at a configurable interval
+- Validates the year range (2001-2099) as required by the controller specification
+
+### Configuration
+
+```yaml
+time:
+  - platform: homeassistant
+    id: ha_time
+
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  time_id: ha_time                    # Reference to time component
+  sync_clock_on_connect: true         # Sync when ESP connects (default: false)
+  clock_sync_interval: 24h            # Periodic sync interval (optional)
+```
+
+### Clock Register Details
+
+According to the Wavin Modbus specification, the clock is in category 0x05 (CLOCK) with 7 registers:
+
+| Index | Register | Range | Description |
+|-------|----------|-------|-------------|
+| 0x00 | YEAR | 2001-2099 | Year value |
+| 0x01 | MONTH | 1-12 | Month (1=Jan, 12=Dec) |
+| 0x02 | DAY | 1-31 | Day of month |
+| 0x03 | DAY_OF_WEEK | 0-6 | 0=Monday, 6=Sunday |
+| 0x04 | HOUR | 0-23 | Hour (24-hour format) |
+| 0x05 | MINUTE | 0-59 | Minute |
+| 0x06 | SECOND | 0-59 | Second |
+
+**Important**: All 7 registers must be written together in a single Modbus command to prevent inconsistencies between reads/writes, as specified in the controller documentation.
+
+### Verification
+
+After setting the clock, you can verify it was set correctly by checking the RTC VALID flag:
+- Category: 0x00 (MAIN)
+- Index: 0x08 (STATUS L)
+- Bit 0: RTC VALID (should be 1 after successful clock set)
+
+The component logs all clock sync operations at INFO level, showing the timestamp that was written to the controller.
 
 ## Full Example
 

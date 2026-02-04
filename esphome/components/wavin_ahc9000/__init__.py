@@ -1,7 +1,7 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import uart, climate
-from esphome.const import CONF_ID
+from esphome.const import CONF_ID, CONF_TIME_ID
 from esphome import pins
 
 CODEOWNERS = ["@jascdk"]
@@ -19,6 +19,8 @@ CONF_TEMP_DIVISOR = "temp_divisor"
 CONF_RECEIVE_TIMEOUT_MS = "receive_timeout_ms"
 CONF_POLL_CHANNELS_PER_CYCLE = "poll_channels_per_cycle"
 CONF_ALLOW_MODE_WRITES = "allow_mode_writes"
+CONF_SYNC_CLOCK_ON_CONNECT = "sync_clock_on_connect"
+CONF_CLOCK_SYNC_INTERVAL = "clock_sync_interval"
 
 _FRIENDLY_NAME_KEYS = {
     cv.Optional(f"channel_{i:02d}_friendly_name"): cv.string for i in range(1, 17)
@@ -35,13 +37,15 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RECEIVE_TIMEOUT_MS, default=1000): cv.positive_int,
             cv.Optional(CONF_POLL_CHANNELS_PER_CYCLE, default=2): cv.int_range(min=1, max=16),
             cv.Optional(CONF_ALLOW_MODE_WRITES, default=True): cv.boolean,
+            cv.Optional(CONF_TIME_ID): cv.string,
+            cv.Optional(CONF_SYNC_CLOCK_ON_CONNECT, default=False): cv.boolean,
+            cv.Optional(CONF_CLOCK_SYNC_INTERVAL): cv.positive_time_period_seconds,
             **_FRIENDLY_NAME_KEYS,
         }
     )
     .extend(uart.UART_DEVICE_SCHEMA)
     .extend(cv.polling_component_schema("5s"))
 )
-
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])
@@ -61,6 +65,14 @@ async def to_code(config):
         cg.add(var.set_poll_channels_per_cycle(config[CONF_POLL_CHANNELS_PER_CYCLE]))
     if CONF_ALLOW_MODE_WRITES in config:
         cg.add(var.set_allow_mode_writes(config[CONF_ALLOW_MODE_WRITES]))
+    
+    # Clock sync configuration
+    if CONF_TIME_ID in config:
+        cg.add(var.set_time_id(config[CONF_TIME_ID]))
+    if CONF_SYNC_CLOCK_ON_CONNECT in config:
+        cg.add(var.set_sync_clock_on_connect(config[CONF_SYNC_CLOCK_ON_CONNECT]))
+    if CONF_CLOCK_SYNC_INTERVAL in config:
+        cg.add(var.set_clock_sync_interval(config[CONF_CLOCK_SYNC_INTERVAL]))
 
     # Parse channel friendly names
     for key, value in config.items():

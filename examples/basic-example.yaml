@@ -45,6 +45,11 @@ uart:
   baud_rate: 38400
   parity: EVEN
 
+# Optional: Configure time component for clock synchronization
+time:
+  - platform: homeassistant
+    id: ha_time
+
 # Configure the Wavin AHC-9000 component
 wavin_ahc9000:
   id: wavin_controller
@@ -53,6 +58,10 @@ wavin_ahc9000:
   # Optional: GPIO pin to enable RS485 transmission (DE/RE pin on RS485 module)
   tx_enable_pin: GPIO5
   flow_control_pin: GPIO5
+  # Optional: Clock synchronization with Home Assistant time
+  time_id: ha_time
+  sync_clock_on_connect: true
+  clock_sync_interval: 24h
   
 # Add climate control for zone 1 (Living Room)
 climate:
