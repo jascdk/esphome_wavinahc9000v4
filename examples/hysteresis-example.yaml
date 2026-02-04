@@ -1,0 +1,114 @@
+# Wavin AHC-9000 ESPHome Configuration with Hysteresis Control
+# This example shows how to use the hysteresis number component
+
+substitutions:
+  device_name: wavin-heating
+  friendly_name: Wavin Heating Controller
+
+esphome:
+  name: ${device_name}
+  platform: ESP32
+  board: esp32dev
+
+# Enable logging
+logger:
+  level: INFO
+
+# Enable Home Assistant API
+api:
+
+# Enable OTA updates
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "${friendly_name} Hotspot"
+    password: "fallback123"
+
+captive_portal:
+
+# Load the custom component from GitHub
+external_components:
+  - source: github://jascdk/esphome_wavinahc9000v4
+    components: [wavin_ahc9000]
+
+# Configure UART for RS485 communication
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+# Configure the Wavin AHC-9000 component
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+  
+# Climate entities
+climate:
+  # Zone 1: Living Room - with hysteresis control
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Living Room"
+    id: living_room_climate
+    channel: 1
+  
+  # Zone 2: Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Kitchen"
+    id: kitchen_climate
+    channel: 2
+  
+  # Group climate: All Bedrooms - with hysteresis control
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "All Bedrooms"
+    id: bedrooms_climate
+    members: [3, 4]
+
+# Hysteresis number entities for controlling temperature deadband (0.1-1.0°C)
+number:
+  # Hysteresis control for Living Room
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: living_room_climate
+    name: "Living Room Hysteresis"
+    type: hysteresis
+  
+  # Hysteresis control for Kitchen
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: kitchen_climate
+    name: "Kitchen Hysteresis"
+    type: hysteresis
+  
+  # Hysteresis control for All Bedrooms group
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    climate_id: bedrooms_climate
+    name: "Bedrooms Hysteresis"
+    type: hysteresis
+
+# Optional: Temperature sensors
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: temperature
+    name: "Living Room Temperature"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 2
+    type: temperature
+    name: "Kitchen Temperature"

@@ -1563,7 +1563,7 @@ void WavinZoneClimate::update_from_parent() {
     }
     this->mode = this->parent_->get_channel_mode(ch);
     // Action: derive from temperatures with a small deadband, fallback to controller bit
-    const float db = 0.3f;  // hysteresis in °C
+    const float db = this->hysteresis_;  // configurable hysteresis in °C (0.1-1.0)
     auto raw_action = this->parent_->get_channel_action(ch);
     if (!std::isnan(this->current_temperature) && !std::isnan(this->target_temperature)) {
       if (this->current_temperature > this->target_temperature + db) {
@@ -1596,7 +1596,7 @@ void WavinZoneClimate::update_from_parent() {
     if (!this->members_.empty()) this->target_temperature = sum_set / this->members_.size();
     this->mode = all_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
     // Group action: prefer temperature comparison with deadband, fallback to any member heating
-    const float db = 0.3f;
+    const float db = this->hysteresis_;  // configurable hysteresis in °C (0.1-1.0)
     if (!std::isnan(this->current_temperature) && !std::isnan(this->target_temperature)) {
       if (this->current_temperature > this->target_temperature + db) {
         this->action = climate::CLIMATE_ACTION_IDLE;
