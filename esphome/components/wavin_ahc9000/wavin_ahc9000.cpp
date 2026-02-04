@@ -1174,10 +1174,13 @@ void WavinAHC9000::publish_updates() {
         }
       }
     }
-    // Only publish if we have at least one valid temperature
+    // Publish average if we have valid temperatures, otherwise publish NaN
     if (valid_count > 0) {
       float average = sum / valid_count;
       avg_sensor.sensor->publish_state(average);
+    } else {
+      // No valid temperatures available; publish NaN to indicate no data
+      avg_sensor.sensor->publish_state(NAN);
     }
   }
 
