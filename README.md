@@ -10,6 +10,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
+- **CPU Temperature Monitoring**: Read controller internal CPU temperature for diagnostics
 - **Child Lock**: Control and monitor child lock status per zone
 - **Group Child Lock**: Create master switches that control child locks across multiple zones
 - **Device Information**: Read controller hardware/software version, address, and device name
@@ -116,19 +117,29 @@ climate:
   - `floor_min_temperature`: Floor minimum temperature limit (read-only, requires `channel`)
   - `floor_max_temperature`: Floor maximum temperature limit (read-only, requires `channel`)
   - `average_temperature`: Average temperature across multiple channels (requires `members`)
+  - `cpu_temperature`: Controller CPU temperature (diagnostic sensor, no `channel` or `members` needed)
 
-**Note**: Use `channel` for single channel sensors, or `members` for average temperature sensors. They are mutually exclusive.
+**Note**: Use `channel` for single channel sensors, or `members` for average temperature sensors. The `cpu_temperature` type doesn't require either.
 
 **Average Temperature Sensor**: The `average_temperature` sensor type calculates the average temperature across multiple channels. Specify the channels to include using the `members` parameter as a list of channel numbers. Only channels with valid temperature readings are included in the average calculation.
+
+**CPU Temperature Sensor**: The `cpu_temperature` sensor type reads the internal CPU temperature of the Wavin controller. This is a diagnostic value that can help monitor the health of your heating controller. The temperature is read from the MAIN category register 0x12.
 
 Example:
 ```yaml
 sensor:
+  # Average temperature sensor
   - platform: wavin_ahc9000
     wavin_ahc9000_id: wavin_controller
     type: average_temperature
     members: [1, 2, 3, 4]  # Average of channels 1-4
     name: "House Average Temperature"
+  
+  # Controller CPU temperature sensor
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: cpu_temperature
+    name: "Controller CPU Temperature"
 ```
 
 ### Switch Entity (`switch` platform)

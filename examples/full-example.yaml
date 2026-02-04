@@ -165,6 +165,12 @@ sensor:
     type: average_temperature
     members: [1, 2, 3, 4]  # All zones
     name: "House Average Temperature"
+  
+  # Controller CPU temperature (diagnostic sensor)
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: cpu_temperature
+    name: "Controller CPU Temperature"
 
 # Child lock switches
 switch:
