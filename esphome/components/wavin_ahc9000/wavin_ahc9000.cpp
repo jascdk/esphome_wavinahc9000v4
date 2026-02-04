@@ -1186,8 +1186,7 @@ void WavinZoneClimate::dump_config() { LOG_CLIMATE("  ", "Wavin Zone Climate (mi
 climate::ClimateTraits WavinZoneClimate::traits() {
   climate::ClimateTraits t;
   t.set_supported_modes({climate::CLIMATE_MODE_HEAT, climate::CLIMATE_MODE_OFF});
-  t.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE);
-  t.add_feature_flags(climate::CLIMATE_SUPPORTS_ACTION);
+  t.add_feature_flags(climate::CLIMATE_SUPPORTS_CURRENT_TEMPERATURE | climate::CLIMATE_SUPPORTS_ACTION);
   // Default visual bounds
   float vmin = 5.0f;
   float vmax = 35.0f;
