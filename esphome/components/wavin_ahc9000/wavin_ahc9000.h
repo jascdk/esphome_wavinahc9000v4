@@ -296,8 +296,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint16_t ELEM_STATUS_TP_ACT_MASK = 0x0800; // Bit 11: TP ACT (thermostat output active)
 
   static constexpr uint8_t PACKED_MANUAL_TEMPERATURE = 0x00;
-  static constexpr uint8_t PACKED_COMFORT_TEMPERATURE = 0x02; // Comfort mode temperature setpoint (temp_high)
-  static constexpr uint8_t PACKED_ECO_TEMPERATURE = 0x03; // Eco mode temperature setpoint (temp_low)
+  static constexpr uint8_t PACKED_COMFORT_TEMPERATURE = 0x09; // Comfort mode temperature setpoint (temp_high)
+  static constexpr uint8_t PACKED_ECO_TEMPERATURE = 0x08; // Eco mode temperature setpoint (temp_low)
   static constexpr uint8_t PACKED_STANDBY_TEMPERATURE = 0x04;
   static constexpr uint8_t PACKED_CONFIGURATION = 0x07;
   // Inferred from field dump: floor min/max setpoints exposed in PACKED page

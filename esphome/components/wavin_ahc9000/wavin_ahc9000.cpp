@@ -339,12 +339,12 @@ void WavinAHC9000::update() {
         }
         case 5: {
           // Read hysteresis, eco, and comfort temperatures for bi-directional sync
-          // Read all three in one combined request (they're at indices 0x0E, 0x03, 0x02)
+          // Read all three in one combined request (they're at indices 0x0E, 0x08, 0x09)
           // Actually read them separately since they're not contiguous in this order
-          // Read comfort (0x02) and eco (0x03) together (contiguous)
-          if (this->read_registers(CAT_PACKED, ch_page, PACKED_COMFORT_TEMPERATURE, 2, regs) && regs.size() >= 2) {
-            float comfort_temp = this->raw_to_c(regs[0]);
-            float eco_temp = this->raw_to_c(regs[1]);
+          // Read eco (0x08) and comfort (0x09) together (contiguous)
+          if (this->read_registers(CAT_PACKED, ch_page, PACKED_ECO_TEMPERATURE, 2, regs) && regs.size() >= 2) {
+            float eco_temp = this->raw_to_c(regs[0]);
+            float comfort_temp = this->raw_to_c(regs[1]);
             
             // Detect changes and sync to group members
             if (!std::isnan(st.prev_comfort_temp_c) && std::abs(comfort_temp - st.prev_comfort_temp_c) > 0.01f) {
