@@ -7,6 +7,7 @@ from esphome.const import (
     ICON_BATTERY,
     DEVICE_CLASS_TEMPERATURE,
     UNIT_CELSIUS,
+    DEVICE_CLASS_HUMIDITY,
 )
 
 from . import WavinAHC9000
@@ -52,6 +53,7 @@ CONFIG_SCHEMA = cv.All(
                 "floor_min_temperature",
                 "floor_max_temperature",
                 "average_temperature",
+                "humidity",
                 lower=True,
             ),
         }
@@ -70,6 +72,12 @@ async def to_code(config):
         cg.add(sens.set_icon(ICON_BATTERY))
         cg.add(sens.set_accuracy_decimals(0))
         cg.add(hub.add_channel_battery_sensor(config[CONF_CHANNEL], sens))
+        cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
+    elif config[CONF_TYPE] == "humidity":
+        cg.add(sens.set_device_class(DEVICE_CLASS_HUMIDITY))
+        cg.add(sens.set_unit_of_measurement(UNIT_PERCENT))
+        cg.add(sens.set_accuracy_decimals(1))
+        cg.add(hub.add_channel_humidity_sensor(config[CONF_CHANNEL], sens))
         cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
     elif config[CONF_TYPE] == "average_temperature":
         # average_temperature sensor with members list
