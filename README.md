@@ -6,6 +6,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Standby Mode**: Bi-directional OFF mode that activates the thermostat's standby feature
+- **Standby Switch**: Dedicated switch entity for easier UI control of standby mode
 - **Group Climate**: Create virtual thermostats that control multiple zones together
 - **Hysteresis Control**: Adjustable temperature deadband (0.1-1.0°C) for each climate entity with persistence across restarts
 - **Temperature Sensors**: Room temperature, floor temperature sensors
@@ -243,9 +244,15 @@ number:
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
 - **channel** (*Optional*): Single channel number (1-16)
 - **members** (*Optional*): List of channel numbers for group control
-- **type** (*Optional*, default: `child_lock`): Switch type (currently only `child_lock`)
+- **type** (*Optional*, default: `child_lock`): Switch type, one of:
+  - `child_lock`: Control child lock state for zones
+  - `standby`: Control standby mode (ON=standby, OFF=heat)
 
 **Note**: Either `channel` (for single zone) or `members` (for group control) should be specified, but not both.
+
+#### Child Lock Switch
+
+The `child_lock` switch type controls the physical child lock feature on thermostats, preventing manual changes at the device.
 
 **Group Control**: The `members` parameter allows you to create a master switch that controls the child lock state for multiple channels simultaneously. When enabled, all member channels will have their child locks activated; when disabled, all will be deactivated.
 
@@ -266,6 +273,46 @@ switch:
     members: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
     name: "Master Lock"
 ```
+
+#### Standby Mode Switch
+
+The `standby` switch type provides an intuitive UI control for standby mode. This is an alternative to using the climate entity's HVAC mode control.
+
+- **Switch ON**: Zone enters standby mode (climate OFF) - energy-saving mode, heating disabled
+- **Switch OFF**: Zone returns to heating mode (climate HEAT) - maintains target temperature
+
+This feature is **fully bi-directional** and synchronized with the climate entity:
+- Turn standby switch ON → Climate mode becomes OFF
+- Set climate to OFF → Standby switch becomes ON
+- Turn standby switch OFF → Climate mode becomes HEAT
+- Set climate to HEAT → Standby switch becomes OFF
+
+The standby switch is particularly useful for:
+- Creating simple "away mode" or "night mode" automations
+- Providing a clear ON/OFF control in the Home Assistant UI
+- Group control of multiple zones with a single master switch
+
+Example:
+```yaml
+switch:
+  # Single channel standby control
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    channel: 1
+    type: standby
+    name: "Living Room Standby"
+    icon: "mdi:power"
+  
+  # Master standby switch for multiple zones
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: standby
+    members: [1, 2, 3, 4]
+    name: "Master Standby"
+    icon: "mdi:power-standby"
+```
+
+See [examples/standby-switch-example.yaml](examples/standby-switch-example.yaml) for a complete configuration with automation examples.
 
 ### Text Sensor (`text_sensor` platform)
 
