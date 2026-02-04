@@ -1,6 +1,6 @@
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import uart, climate
+from esphome.components import uart, climate, time
 from esphome.const import CONF_ID, CONF_TIME_ID
 from esphome import pins
 
@@ -37,7 +37,7 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_RECEIVE_TIMEOUT_MS, default=1000): cv.positive_int,
             cv.Optional(CONF_POLL_CHANNELS_PER_CYCLE, default=2): cv.int_range(min=1, max=16),
             cv.Optional(CONF_ALLOW_MODE_WRITES, default=True): cv.boolean,
-            cv.Optional(CONF_TIME_ID): cv.string,
+            cv.Optional(CONF_TIME_ID): cv.use_id(time.RealTimeClock),
             cv.Optional(CONF_SYNC_CLOCK_ON_CONNECT, default=False): cv.boolean,
             cv.Optional(CONF_CLOCK_SYNC_INTERVAL): cv.positive_time_period_seconds,
             **_FRIENDLY_NAME_KEYS,
@@ -68,7 +68,8 @@ async def to_code(config):
     
     # Clock sync configuration
     if CONF_TIME_ID in config:
-        cg.add(var.set_time_id(config[CONF_TIME_ID]))
+        time_ = await cg.get_variable(config[CONF_TIME_ID])
+        cg.add(var.set_time_id(time_))
     if CONF_SYNC_CLOCK_ON_CONNECT in config:
         cg.add(var.set_sync_clock_on_connect(config[CONF_SYNC_CLOCK_ON_CONNECT]))
     if CONF_CLOCK_SYNC_INTERVAL in config:

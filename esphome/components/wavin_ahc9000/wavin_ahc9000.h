@@ -3,6 +3,7 @@
 #include "esphome/components/climate/climate.h"
 #include "esphome/components/uart/uart.h"
 #include "esphome/components/switch/switch.h"
+#include "esphome/components/time/real_time_clock.h"
 #include "esphome/core/component.h"
 
 #include <vector>
@@ -60,7 +61,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_device_name_text_sensor(text_sensor::TextSensor *s) { this->device_name_text_sensor_ = s; }
 
   // Clock synchronization
-  void set_time_id(const std::string &time_id) { this->time_id_ = time_id; }
+  void set_time_id(time::RealTimeClock *time_id) { this->time_id_ = time_id; }
   void set_sync_clock_on_connect(bool v) { this->sync_clock_on_connect_ = v; }
   void set_clock_sync_interval(uint32_t seconds) { this->clock_sync_interval_ = seconds; }
   bool sync_clock_now();
@@ -270,7 +271,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t IO_RETRY_ATTEMPTS = 2; // first failure logged at DEBUG, final at WARN
 
   // Clock sync state
-  std::string time_id_{};
+  time::RealTimeClock *time_id_{nullptr};
   bool sync_clock_on_connect_{false};
   uint32_t clock_sync_interval_{0};  // seconds, 0 = no periodic sync
   uint32_t last_clock_sync_{0};      // millis of last sync
