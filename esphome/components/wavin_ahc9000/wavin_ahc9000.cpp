@@ -245,22 +245,6 @@ void WavinAHC9000::update() {
   this->next_active_index_ = (uint8_t) ((this->next_active_index_ + 1) % this->active_channels_.size());
   }
 
-  // Read CPU temperature periodically (once per update cycle if sensor is configured)
-  // This is a controller internal diagnostic value from MAIN category
-  if (this->cpu_temperature_sensor_ != nullptr) {
-    if (this->read_registers(CAT_MAIN, 0, MAIN_CPU_TEMPERATURE, 1, regs) && regs.size() >= 1) {
-      // Assume same scaling as other temperatures (0.1°C per unit)
-      float cpu_temp_c = this->raw_to_c(regs[0]);
-      // Sanity check: CPU temps should be reasonable
-      if (cpu_temp_c >= MIN_CPU_TEMP_C && cpu_temp_c <= MAX_CPU_TEMP_C) {
-        this->cpu_temperature_sensor_->publish_state(cpu_temp_c);
-        ESP_LOGD(TAG, "CPU Temperature: %.1f°C", cpu_temp_c);
-      } else {
-        ESP_LOGD(TAG, "CPU Temperature out of range: %.1f°C (raw=0x%04X)", cpu_temp_c, (unsigned)regs[0]);
-      }
-    }
-  }
-
   // publish once per cycle
   this->publish_updates();
 }
