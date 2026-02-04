@@ -6,6 +6,8 @@ esphome:
 
 esp32:
   board: esp32dev
+  framework:
+    type: arduino
 
 # Reference the component from GitHub
 external_components:
@@ -33,7 +35,7 @@ ota:
 
 wifi:
   ssid: "test"
-  password: "test"
+  password: "testpassword"
 
 uart:
   id: uart_bus
@@ -73,3 +75,9 @@ text_sensor:
     wavin_ahc9000_id: wavin_controller
     type: device_name
     name: "Device Name"
+  
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: channel_info
+    channel: 1
+    name: "Test Zone Info"
