@@ -222,7 +222,7 @@ void WavinAHC9000::update() {
             if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
               // Parse status register (index 0x00) for thermostat connection status
               st.thermostat_connected = this->parse_thermostat_connection_status(regs);
-              if (regs.size() > ELEM_STATUS) {
+              if (!regs.empty()) {
                 ESP_LOGD(TAG, "CH%u status=0x%04X connected=%d", 
                          ch_num, regs[ELEM_STATUS], st.thermostat_connected);
               }
