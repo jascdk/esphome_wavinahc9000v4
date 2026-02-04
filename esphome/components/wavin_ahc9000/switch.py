@@ -19,7 +19,7 @@ CONFIG_SCHEMA = cv.All(
         cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
         cv.Optional(CONF_MEMBERS): cv.ensure_list(cv.int_range(min=1, max=16)),
         cv.Optional(CONF_TYPE, default="child_lock"): cv.one_of("child_lock", "standby", lower=True),
-    }).extend(cv.COMPONENT_SCHEMA),
+    }).extend(switch.SWITCH_SCHEMA).extend(cv.COMPONENT_SCHEMA),
     cv.has_exactly_one_key(CONF_CHANNEL, CONF_MEMBERS),
 )
 
