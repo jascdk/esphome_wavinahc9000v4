@@ -48,6 +48,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   // New read-only floor limit sensors
   void add_channel_floor_min_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   void add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s);
+  // Average temperature sensor with member channels
+  void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
   void add_active_channel(uint8_t ch);
   
@@ -154,6 +156,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_min_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
+  // Average temperature sensors: sensor pointer -> list of member channels
+  struct AverageTempSensor {
+    sensor::Sensor *sensor;
+    std::vector<uint8_t> members;
+  };
+  std::vector<AverageTempSensor> average_temperature_sensors_;
   // Device info text sensors
   text_sensor::TextSensor *control_unit_address_text_sensor_{nullptr};
   text_sensor::TextSensor *hw_version_text_sensor_{nullptr};

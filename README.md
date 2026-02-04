@@ -7,6 +7,7 @@ This is an ESPHome custom component for the Wavin AHC-9000 underfloor heating co
 - **Climate Control**: Full climate entity support for up to 16 heating zones
 - **Group Climate**: Create virtual thermostats that control multiple zones together
 - **Temperature Sensors**: Room temperature, floor temperature sensors
+- **Average Temperature Sensors**: Calculate average temperature across multiple zones
 - **Floor Temperature Limits**: Read floor temperature min/max limits
 - **Battery Monitoring**: Monitor battery levels for wireless thermostats
 - **Child Lock**: Control and monitor child lock status per zone
@@ -105,13 +106,29 @@ climate:
 ### Sensor Entity (`sensor` platform)
 
 - **wavin_ahc9000_id** (*Required*): ID of the main wavin_ahc9000 component
-- **channel** (*Required*): Channel number (1-16)
+- **channel** (*Optional*): Channel number (1-16) - required for single channel sensors
+- **members** (*Optional*): List of channel numbers (1-16) - required for average temperature sensors
 - **type** (*Required*): Sensor type, one of:
-  - `battery`: Battery level percentage
-  - `temperature`: Current room temperature
-  - `floor_temperature`: Floor temperature
-  - `floor_min_temperature`: Floor minimum temperature limit (read-only)
-  - `floor_max_temperature`: Floor maximum temperature limit (read-only)
+  - `battery`: Battery level percentage (requires `channel`)
+  - `temperature`: Current room temperature (requires `channel`)
+  - `floor_temperature`: Floor temperature (requires `channel`)
+  - `floor_min_temperature`: Floor minimum temperature limit (read-only, requires `channel`)
+  - `floor_max_temperature`: Floor maximum temperature limit (read-only, requires `channel`)
+  - `average_temperature`: Average temperature across multiple channels (requires `members`)
+
+**Note**: Use `channel` for single channel sensors, or `members` for average temperature sensors. They are mutually exclusive.
+
+**Average Temperature Sensor**: The `average_temperature` sensor type calculates the average temperature across multiple channels. Specify the channels to include using the `members` parameter as a list of channel numbers. Only channels with valid temperature readings are included in the average calculation.
+
+Example:
+```yaml
+sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: average_temperature
+    members: [1, 2, 3, 4]  # Average of channels 1-4
+    name: "House Average Temperature"
+```
 
 ### Switch Entity (`switch` platform)
 

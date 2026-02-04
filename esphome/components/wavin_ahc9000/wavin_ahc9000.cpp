@@ -288,6 +288,18 @@ void WavinAHC9000::add_active_channel(uint8_t ch) {
   }
 }
 
+void WavinAHC9000::add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members) {
+  AverageTempSensor avg_sensor;
+  avg_sensor.sensor = s;
+  // Convert int vector to uint8_t vector
+  for (int m : members) {
+    if (m >= 1 && m <= 16) {
+      avg_sensor.members.push_back(static_cast<uint8_t>(m));
+    }
+  }
+  this->average_temperature_sensors_.push_back(avg_sensor);
+}
+
 // Repair functions removed; use normalize_channel_config via API service
 
 bool WavinAHC9000::read_registers(uint8_t category, uint8_t page, uint8_t index, uint8_t count, std::vector<uint16_t> &out) {
@@ -1143,6 +1155,29 @@ void WavinAHC9000::publish_updates() {
     auto it = this->channels_.find(ch);
     if (it != this->channels_.end()) {
       sw->publish_state(it->second.child_lock);
+    }
+  }
+
+  // Average temperature sensors
+  for (auto &avg_sensor : this->average_temperature_sensors_) {
+    if (!avg_sensor.sensor) continue;
+    float sum = 0.0f;
+    uint8_t valid_count = 0;
+    // Calculate average of member channel temperatures
+    for (uint8_t ch : avg_sensor.members) {
+      auto it = this->channels_.find(ch);
+      if (it != this->channels_.end()) {
+        float temp = it->second.current_temp_c;
+        if (!std::isnan(temp)) {
+          sum += temp;
+          valid_count++;
+        }
+      }
+    }
+    // Only publish if we have at least one valid temperature
+    if (valid_count > 0) {
+      float average = sum / valid_count;
+      avg_sensor.sensor->publish_state(average);
     }
   }
 

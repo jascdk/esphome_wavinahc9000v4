@@ -150,6 +150,21 @@ sensor:
     channel: 3
     type: battery
     name: "Bedroom 1 Battery"
+  
+  # Average temperature sensors
+  # Example: Average temperature of all bedrooms
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: average_temperature
+    members: [3, 4]  # Bedroom 1 and Bedroom 2
+    name: "Bedrooms Average Temperature"
+  
+  # Example: Average temperature of entire house
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: average_temperature
+    members: [1, 2, 3, 4]  # All zones
+    name: "House Average Temperature"
 
 # Child lock switches
 switch:
