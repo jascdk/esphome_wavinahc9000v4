@@ -35,7 +35,7 @@ ota:
 
 wifi:
   ssid: "test"
-  password: "testpassword"
+  password: "your_wifi_password_here"
 
 uart:
   id: uart_bus
