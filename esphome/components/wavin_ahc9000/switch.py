@@ -13,13 +13,12 @@ WavinChildLockSwitch = ns.class_("WavinChildLockSwitch", switch.Switch, cg.Compo
 WavinStandbySwitch = ns.class_("WavinStandbySwitch", switch.Switch, cg.Component)
 
 CONFIG_SCHEMA = cv.All(
-    cv.Schema({
-        cv.GenerateID(): cv.declare_id(switch.Switch),
+    switch.switch_schema().extend({
         cv.GenerateID(CONF_PARENT_ID): cv.use_id(WavinAHC9000),
         cv.Optional(CONF_CHANNEL): cv.int_range(min=1, max=16),
         cv.Optional(CONF_MEMBERS): cv.ensure_list(cv.int_range(min=1, max=16)),
         cv.Optional(CONF_TYPE, default="child_lock"): cv.one_of("child_lock", "standby", lower=True),
-    }).extend(switch.SWITCH_SCHEMA).extend(cv.COMPONENT_SCHEMA),
+    }),
     cv.has_exactly_one_key(CONF_CHANNEL, CONF_MEMBERS),
 )
 
