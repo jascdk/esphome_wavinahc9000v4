@@ -289,8 +289,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_PARTY = 0x04;         // MODE=100: Party on manual (or with schedule)
   static constexpr uint16_t PACKED_CONFIGURATION_MODE_HOLIDAY = 0x05;       // MODE=101: Holiday on manual (or with schedule)
   
-  static constexpr uint16_t PACKED_CONFIGURATION_SCHED_ENA_BIT = 0x0010;    // Bit 4: SCHED_ENA (schedule enable)
-  static constexpr uint16_t PACKED_CONFIGURATION_SCHED_CLEAR_MASK = 0x0010; // Clear bit 4 (SCHED_ENA) for manual mode operation
+  static constexpr uint16_t PACKED_CONFIGURATION_SCHED_ENA_BIT = 0x0010;    // Bit 4: SCHED_ENA (schedule enable, clear for manual modes)
   static constexpr uint16_t PACKED_CONFIGURATION_STRICT_UNLOCK_MASK = 0x0078; // bits 3..6 (avoid touching mode bits 0..2)
   static constexpr uint16_t PACKED_CONFIGURATION_CHILD_LOCK_MASK = 0x0800; // Bit 11: child lock (0x4000->0x4800)
 

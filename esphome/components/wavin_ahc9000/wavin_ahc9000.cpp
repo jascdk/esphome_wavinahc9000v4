@@ -107,7 +107,7 @@ void WavinAHC9000::update() {
           uint16_t current = raw_cfg;
           // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to ensure manual mode
           uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
-          uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_CLEAR_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+          uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_ENA_BIT)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
           ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch, (unsigned) current, (unsigned) next);
           if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
             // Schedule another quick check
@@ -209,7 +209,7 @@ void WavinAHC9000::update() {
                 uint16_t current = raw_cfg;
                 // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to ensure manual mode
                 uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
-                uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_CLEAR_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+                uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_ENA_BIT)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
                 ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch_num, (unsigned) current, (unsigned) next);
                 if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
                   // Schedule another quick check
@@ -771,7 +771,7 @@ void WavinAHC9000::write_channel_mode(uint8_t channel, climate::ClimateMode mode
       uint16_t current = regs[0];
       // Clear MODE bits (0x07) and SCHED_ENA bit (0x10), then set new MODE
       uint16_t new_bits = (mode == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
-      uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_CLEAR_MASK)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+      uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_ENA_BIT)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
       ESP_LOGW(TAG, "WM fallback: PACKED_CONFIGURATION ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) channel, (unsigned) current, (unsigned) next);
       ok = this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, next);
   // No alternate OFF attempt to avoid special thermostat modes
