@@ -38,6 +38,9 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void set_poll_channels_per_cycle(uint8_t n) { this->poll_channels_per_cycle_ = n == 0 ? 1 : (n > 16 ? 16 : n); }
   void set_allow_mode_writes(bool v) { this->allow_mode_writes_ = v; }
   bool get_allow_mode_writes() const { return this->allow_mode_writes_; }
+  // Bi-directional sync configuration
+  void set_sync_group_settings(bool v) { this->sync_group_settings_ = v; }
+  bool get_sync_group_settings() const { return this->sync_group_settings_; }
   // Friendly name support (optional per-channel overrides for generated YAML)
   void set_channel_friendly_name(uint8_t channel, const std::string &name);
   std::string get_channel_friendly_name(uint8_t channel) const;
@@ -129,6 +132,11 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   
   // Get all sibling channels (other members of the same groups as the given channel)
   std::set<uint8_t> get_group_sibling_channels(uint8_t ch) const;
+  
+  // Register number entities for bi-directional sync
+  void add_hysteresis_number(WavinHysteresisNumber *num);
+  void add_temp_low_number(WavinTempLowNumber *num);
+  void add_temp_high_number(WavinTempHighNumber *num);
 
   // Data access
   float get_channel_current_temp(uint8_t channel) const;
@@ -149,6 +157,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   bool write_clock_registers(const std::vector<uint16_t> &values);
 
   void publish_updates();
+  
+  // Bi-directional sync helpers
+  void check_and_sync_group_settings();
+  void sync_hysteresis_to_group(uint8_t changed_channel, float new_value);
+  void sync_eco_temp_to_group(uint8_t changed_channel, float new_value);
+  void sync_comfort_temp_to_group(uint8_t changed_channel, float new_value);
 
   // Helpers
   float raw_to_c(float raw) const { return raw / this->temp_divisor_; }
@@ -177,6 +191,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     bool all_tp_lost{false};
     bool has_floor_sensor{false};
     bool child_lock{false};
+    // Bi-directional sync tracking (previous values for change detection)
+    float prev_hysteresis_c{NAN};
+    float prev_eco_temp_c{NAN};
+    float prev_comfort_temp_c{NAN};
   };
 
   std::map<uint8_t, ChannelState> channels_;
@@ -219,6 +237,12 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::vector<uint8_t> active_channels_;
   std::map<uint8_t, climate::ClimateMode> desired_mode_; // desired mode to reconcile after refresh
   std::set<uint8_t> strict_mode_channels_; // channels opting into strict baseline writes
+  
+  // Bi-directional sync support
+  bool sync_group_settings_{false};  // Enable/disable bi-directional sync feature
+  std::vector<WavinHysteresisNumber *> hysteresis_numbers_;
+  std::vector<WavinTempLowNumber *> temp_low_numbers_;
+  std::vector<WavinTempHighNumber *> temp_high_numbers_;
 
   float temp_divisor_{10.0f};
   uint32_t last_poll_ms_{0};
@@ -430,8 +454,13 @@ class WavinHysteresisNumber : public number::Number, public Component {
     this->members_.clear();
     for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
   }
+  const std::vector<uint8_t> &get_members() const { return this->members_; }
   
   void setup() override {
+    // Register with parent for bi-directional sync
+    if (this->parent_ != nullptr) {
+      this->parent_->add_hysteresis_number(this);
+    }
     // Load persisted value from flash
     this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
     float value;
@@ -547,8 +576,13 @@ class WavinTempLowNumber : public number::Number, public Component {
     this->members_.clear();
     for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
   }
+  const std::vector<uint8_t> &get_members() const { return this->members_; }
   
   void setup() override {
+    // Register with parent for bi-directional sync
+    if (this->parent_ != nullptr) {
+      this->parent_->add_temp_low_number(this);
+    }
     // Load persisted value from flash
     this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
     float value;
@@ -600,8 +634,13 @@ class WavinTempHighNumber : public number::Number, public Component {
     this->members_.clear();
     for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
   }
+  const std::vector<uint8_t> &get_members() const { return this->members_; }
   
   void setup() override {
+    // Register with parent for bi-directional sync
+    if (this->parent_ != nullptr) {
+      this->parent_->add_temp_high_number(this);
+    }
     // Load persisted value from flash
     this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
     float value;

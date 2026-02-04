@@ -75,6 +75,24 @@ std::set<uint8_t> WavinAHC9000::get_group_sibling_channels(uint8_t ch) const {
   return siblings;
 }
 
+void WavinAHC9000::add_hysteresis_number(WavinHysteresisNumber *num) {
+  if (num != nullptr) {
+    this->hysteresis_numbers_.push_back(num);
+  }
+}
+
+void WavinAHC9000::add_temp_low_number(WavinTempLowNumber *num) {
+  if (num != nullptr) {
+    this->temp_low_numbers_.push_back(num);
+  }
+}
+
+void WavinAHC9000::add_temp_high_number(WavinTempHighNumber *num) {
+  if (num != nullptr) {
+    this->temp_high_numbers_.push_back(num);
+  }
+}
+
 void WavinAHC9000::update() {
   // If polling is temporarily suspended (after a write), skip until window expires
   if (this->suspend_polling_until_ != 0 && millis() < this->suspend_polling_until_) {
@@ -311,6 +329,49 @@ void WavinAHC9000::update() {
           } else {
             st.current_temp_c = NAN;
           }
+          // If bi-directional sync is enabled, proceed to step 5 to read group settings
+          if (this->sync_group_settings_) {
+            step = 5;
+          } else {
+            step = 0;
+          }
+          break;
+        }
+        case 5: {
+          // Read hysteresis, eco, and comfort temperatures for bi-directional sync
+          // Read all three in one combined request (they're at indices 0x0E, 0x03, 0x02)
+          // Actually read them separately since they're not contiguous in this order
+          // Read comfort (0x02) and eco (0x03) together (contiguous)
+          if (this->read_registers(CAT_PACKED, ch_page, PACKED_COMFORT_TEMPERATURE, 2, regs) && regs.size() >= 2) {
+            float comfort_temp = this->raw_to_c(regs[0]);
+            float eco_temp = this->raw_to_c(regs[1]);
+            
+            // Detect changes and sync to group members
+            if (!std::isnan(st.prev_comfort_temp_c) && std::abs(comfort_temp - st.prev_comfort_temp_c) > 0.01f) {
+              ESP_LOGI(TAG, "CH%u comfort temp changed: %.1f°C -> %.1f°C", ch_num, st.prev_comfort_temp_c, comfort_temp);
+              this->sync_comfort_temp_to_group(ch_num, comfort_temp);
+            }
+            st.prev_comfort_temp_c = comfort_temp;
+            
+            if (!std::isnan(st.prev_eco_temp_c) && std::abs(eco_temp - st.prev_eco_temp_c) > 0.01f) {
+              ESP_LOGI(TAG, "CH%u eco temp changed: %.1f°C -> %.1f°C", ch_num, st.prev_eco_temp_c, eco_temp);
+              this->sync_eco_temp_to_group(ch_num, eco_temp);
+            }
+            st.prev_eco_temp_c = eco_temp;
+          }
+          
+          // Read hysteresis separately
+          if (this->read_registers(CAT_PACKED, ch_page, PACKED_HYSTERESIS, 1, regs) && regs.size() >= 1) {
+            float hysteresis = this->raw_to_c(regs[0]);
+            
+            // Detect changes and sync to group members
+            if (!std::isnan(st.prev_hysteresis_c) && std::abs(hysteresis - st.prev_hysteresis_c) > 0.01f) {
+              ESP_LOGI(TAG, "CH%u hysteresis changed: %.1f°C -> %.1f°C", ch_num, st.prev_hysteresis_c, hysteresis);
+              this->sync_hysteresis_to_group(ch_num, hysteresis);
+            }
+            st.prev_hysteresis_c = hysteresis;
+          }
+          
           step = 0;
           break;
         }
@@ -1393,6 +1454,129 @@ std::string WavinAHC9000::get_yaml_child_lock_chunk(uint8_t start, uint8_t count
   uint8_t end = (uint8_t) std::min<size_t>(this->yaml_child_lock_channels_.size(), (size_t) start + count);
   std::vector<uint8_t> slice(this->yaml_child_lock_channels_.begin() + start, this->yaml_child_lock_channels_.begin() + end);
   return build_child_lock_yaml_for(this, slice);
+}
+
+void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_value) {
+  // Get all sibling channels (other members of the same groups)
+  std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
+  
+  if (siblings.empty()) {
+    return;  // No siblings to sync to
+  }
+  
+  // Log the sync operation
+  std::string sibling_list;
+  for (uint8_t sibling : siblings) {
+    if (!sibling_list.empty()) sibling_list += ", ";
+    sibling_list += std::to_string(sibling);
+  }
+  ESP_LOGI(TAG, "Syncing hysteresis %.1f°C from CH%u to sibling channel(s): %s", 
+           new_value, (unsigned) changed_channel, sibling_list.c_str());
+  
+  // Write to all sibling channels
+  for (uint8_t sibling : siblings) {
+    this->write_channel_hysteresis(sibling, new_value);
+    // Update the tracking value to prevent re-triggering
+    auto &st = this->channels_[sibling];
+    st.prev_hysteresis_c = new_value;
+  }
+  
+  // Update all hysteresis number entities that include any of the sibling channels
+  for (auto *num : this->hysteresis_numbers_) {
+    if (num == nullptr) continue;
+    // Check if this number entity controls any of the affected channels
+    const auto &members = num->get_members();
+    for (uint8_t member : members) {
+      if (siblings.count(member) > 0) {
+        // This number entity controls at least one affected channel, update its UI
+        num->publish_state(new_value);
+        ESP_LOGD(TAG, "Updated hysteresis number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        break;  // Only update each number entity once
+      }
+    }
+  }
+}
+
+void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_value) {
+  // Get all sibling channels (other members of the same groups)
+  std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
+  
+  if (siblings.empty()) {
+    return;  // No siblings to sync to
+  }
+  
+  // Log the sync operation
+  std::string sibling_list;
+  for (uint8_t sibling : siblings) {
+    if (!sibling_list.empty()) sibling_list += ", ";
+    sibling_list += std::to_string(sibling);
+  }
+  ESP_LOGI(TAG, "Syncing eco temp %.1f°C from CH%u to sibling channel(s): %s", 
+           new_value, (unsigned) changed_channel, sibling_list.c_str());
+  
+  // Write to all sibling channels
+  for (uint8_t sibling : siblings) {
+    this->write_channel_eco_temperature(sibling, new_value);
+    // Update the tracking value to prevent re-triggering
+    auto &st = this->channels_[sibling];
+    st.prev_eco_temp_c = new_value;
+  }
+  
+  // Update all temp_low number entities that include any of the sibling channels
+  for (auto *num : this->temp_low_numbers_) {
+    if (num == nullptr) continue;
+    // Check if this number entity controls any of the affected channels
+    const auto &members = num->get_members();
+    for (uint8_t member : members) {
+      if (siblings.count(member) > 0) {
+        // This number entity controls at least one affected channel, update its UI
+        num->publish_state(new_value);
+        ESP_LOGD(TAG, "Updated temp_low number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        break;  // Only update each number entity once
+      }
+    }
+  }
+}
+
+void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new_value) {
+  // Get all sibling channels (other members of the same groups)
+  std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
+  
+  if (siblings.empty()) {
+    return;  // No siblings to sync to
+  }
+  
+  // Log the sync operation
+  std::string sibling_list;
+  for (uint8_t sibling : siblings) {
+    if (!sibling_list.empty()) sibling_list += ", ";
+    sibling_list += std::to_string(sibling);
+  }
+  ESP_LOGI(TAG, "Syncing comfort temp %.1f°C from CH%u to sibling channel(s): %s", 
+           new_value, (unsigned) changed_channel, sibling_list.c_str());
+  
+  // Write to all sibling channels
+  for (uint8_t sibling : siblings) {
+    this->write_channel_comfort_temperature(sibling, new_value);
+    // Update the tracking value to prevent re-triggering
+    auto &st = this->channels_[sibling];
+    st.prev_comfort_temp_c = new_value;
+  }
+  
+  // Update all temp_high number entities that include any of the sibling channels
+  for (auto *num : this->temp_high_numbers_) {
+    if (num == nullptr) continue;
+    // Check if this number entity controls any of the affected channels
+    const auto &members = num->get_members();
+    for (uint8_t member : members) {
+      if (siblings.count(member) > 0) {
+        // This number entity controls at least one affected channel, update its UI
+        num->publish_state(new_value);
+        ESP_LOGD(TAG, "Updated temp_high number entity '%s' to %.1f°C", num->get_name().c_str(), new_value);
+        break;  // Only update each number entity once
+      }
+    }
+  }
 }
 
 void WavinAHC9000::publish_updates() {
