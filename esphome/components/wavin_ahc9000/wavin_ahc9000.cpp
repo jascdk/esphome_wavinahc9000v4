@@ -1487,72 +1487,81 @@ void WavinAHC9000::sync_hysteresis_to_group(uint8_t changed_channel, float new_v
   // Get all sibling channels (other members of the same groups)
   std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
   
-  if (siblings.empty()) {
-    return;  // No siblings to sync to
+  // Sync to sibling channels if any exist
+  if (!siblings.empty()) {
+    // Log the sync operation
+    ESP_LOGI(TAG, "Syncing hysteresis %.1f°C from CH%u to sibling channel(s): %s", 
+             new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
+    
+    // Write to all sibling channels
+    for (uint8_t sibling : siblings) {
+      this->write_channel_hysteresis(sibling, new_value);
+      // Update the tracking value to prevent re-triggering
+      auto &st = this->channels_[sibling];
+      st.prev_hysteresis_c = new_value;
+    }
+    
+    // Update all hysteresis number entities that include any of the sibling channels
+    this->update_number_entities(this->hysteresis_numbers_, siblings, new_value, "hysteresis");
   }
   
-  // Log the sync operation
-  ESP_LOGI(TAG, "Syncing hysteresis %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
-  
-  // Write to all sibling channels
-  for (uint8_t sibling : siblings) {
-    this->write_channel_hysteresis(sibling, new_value);
-    // Update the tracking value to prevent re-triggering
-    auto &st = this->channels_[sibling];
-    st.prev_hysteresis_c = new_value;
-  }
-  
-  // Update all hysteresis number entities that include any of the sibling channels
-  this->update_number_entities(this->hysteresis_numbers_, siblings, new_value, "hysteresis");
+  // Always update number entities that include the changed channel, even if no siblings
+  std::set<uint8_t> changed_set = {changed_channel};
+  this->update_number_entities(this->hysteresis_numbers_, changed_set, new_value, "hysteresis");
 }
 
 void WavinAHC9000::sync_eco_temp_to_group(uint8_t changed_channel, float new_value) {
   // Get all sibling channels (other members of the same groups)
   std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
   
-  if (siblings.empty()) {
-    return;  // No siblings to sync to
+  // Sync to sibling channels if any exist
+  if (!siblings.empty()) {
+    // Log the sync operation
+    ESP_LOGI(TAG, "Syncing eco temp %.1f°C from CH%u to sibling channel(s): %s", 
+             new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
+    
+    // Write to all sibling channels
+    for (uint8_t sibling : siblings) {
+      this->write_channel_eco_temperature(sibling, new_value);
+      // Update the tracking value to prevent re-triggering
+      auto &st = this->channels_[sibling];
+      st.prev_eco_temp_c = new_value;
+    }
+    
+    // Update all temp_low number entities that include any of the sibling channels
+    this->update_number_entities(this->temp_low_numbers_, siblings, new_value, "temp_low");
   }
   
-  // Log the sync operation
-  ESP_LOGI(TAG, "Syncing eco temp %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
-  
-  // Write to all sibling channels
-  for (uint8_t sibling : siblings) {
-    this->write_channel_eco_temperature(sibling, new_value);
-    // Update the tracking value to prevent re-triggering
-    auto &st = this->channels_[sibling];
-    st.prev_eco_temp_c = new_value;
-  }
-  
-  // Update all temp_low number entities that include any of the sibling channels
-  this->update_number_entities(this->temp_low_numbers_, siblings, new_value, "temp_low");
+  // Always update number entities that include the changed channel, even if no siblings
+  std::set<uint8_t> changed_set = {changed_channel};
+  this->update_number_entities(this->temp_low_numbers_, changed_set, new_value, "temp_low");
 }
 
 void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new_value) {
   // Get all sibling channels (other members of the same groups)
   std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
   
-  if (siblings.empty()) {
-    return;  // No siblings to sync to
+  // Sync to sibling channels if any exist
+  if (!siblings.empty()) {
+    // Log the sync operation
+    ESP_LOGI(TAG, "Syncing comfort temp %.1f°C from CH%u to sibling channel(s): %s", 
+             new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
+    
+    // Write to all sibling channels
+    for (uint8_t sibling : siblings) {
+      this->write_channel_comfort_temperature(sibling, new_value);
+      // Update the tracking value to prevent re-triggering
+      auto &st = this->channels_[sibling];
+      st.prev_comfort_temp_c = new_value;
+    }
+    
+    // Update all temp_high number entities that include any of the sibling channels
+    this->update_number_entities(this->temp_high_numbers_, siblings, new_value, "temp_high");
   }
   
-  // Log the sync operation
-  ESP_LOGI(TAG, "Syncing comfort temp %.1f°C from CH%u to sibling channel(s): %s", 
-           new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
-  
-  // Write to all sibling channels
-  for (uint8_t sibling : siblings) {
-    this->write_channel_comfort_temperature(sibling, new_value);
-    // Update the tracking value to prevent re-triggering
-    auto &st = this->channels_[sibling];
-    st.prev_comfort_temp_c = new_value;
-  }
-  
-  // Update all temp_high number entities that include any of the sibling channels
-  this->update_number_entities(this->temp_high_numbers_, siblings, new_value, "temp_high");
+  // Always update number entities that include the changed channel, even if no siblings
+  std::set<uint8_t> changed_set = {changed_channel};
+  this->update_number_entities(this->temp_high_numbers_, changed_set, new_value, "temp_high");
 }
 
 void WavinAHC9000::publish_updates() {
