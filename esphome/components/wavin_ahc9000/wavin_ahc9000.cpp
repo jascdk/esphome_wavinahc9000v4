@@ -116,7 +116,7 @@ void WavinAHC9000::update() {
       bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY);
       st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
       st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
-      ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s child_lock=%s", (unsigned) ch, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", st.child_lock?"Y":"N");
+      ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s (standby=%s) child_lock=%s", (unsigned) ch, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", is_off ? "ON" : "OFF", st.child_lock?"Y":"N");
       // Reconcile desired mode if pending and mismatch
       auto it_des = this->desired_mode_.find(ch);
       if (it_des != this->desired_mode_.end()) {
@@ -218,7 +218,7 @@ void WavinAHC9000::update() {
             bool is_off = (mode_bits == PACKED_CONFIGURATION_MODE_STANDBY);
             st.mode = is_off ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
             st.child_lock = (raw_cfg & PACKED_CONFIGURATION_CHILD_LOCK_MASK) != 0;
-            ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s child_lock=%s", ch_num, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", st.child_lock?"Y":"N");
+            ESP_LOGD(TAG, "CH%u cfg=0x%04X mode=%s (standby=%s) child_lock=%s", ch_num, (unsigned) raw_cfg, is_off ? "OFF" : "HEAT", is_off ? "ON" : "OFF", st.child_lock?"Y":"N");
             // Reconcile desired mode if pending and mismatch (same logic as urgent refresh)
             auto it_des = this->desired_mode_.find(ch_num);
             if (it_des != this->desired_mode_.end()) {

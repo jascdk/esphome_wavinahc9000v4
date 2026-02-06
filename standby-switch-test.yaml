@@ -18,7 +18,11 @@ esp32:
 
 # Enable DEBUG logging to see state transitions clearly
 logger:
-  level: DEBUG
+  level: INFO
+  logs:
+    # Only enable debug for the relevant components to reduce noise
+    wavin_ahc9000: DEBUG
+    switch: DEBUG
 
 api:
 

@@ -68,7 +68,7 @@ This guide describes how to validate the new `standby` switch type using the `ex
 - **Test:** Toggle the Master Switch to ensure it forces *all* members to the desired state regardless of their previous state.
 
 ## Log Verification
-Look for these lines in the ESPHome logs (Level: DEBUG):
+Look for these lines in the ESPHome logs. The configuration is set to show DEBUG logs only for the Wavin component and switches:
 
 ```text
 // When turning switch ON
@@ -76,6 +76,6 @@ Look for these lines in the ESPHome logs (Level: DEBUG):
 [D][wavin_ahc9000:123] Writing mode: ch=1 OFF (clearing program bits)
 
 // When sync happens from Climate/Physical change
-[D][wavin_ahc9000:456] CH1 cfg=0x4001 mode=OFF ...
+[D][wavin_ahc9000:456] CH1 cfg=0x4001 mode=OFF (standby=ON) ...
 [D][switch:056] 'Zone 1 Standby': Turning ON
 ```
