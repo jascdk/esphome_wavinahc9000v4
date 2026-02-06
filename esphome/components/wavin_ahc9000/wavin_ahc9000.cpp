@@ -125,12 +125,13 @@ void WavinAHC9000::update() {
           uint16_t current = raw_cfg;
           // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to ensure manual mode
           uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
-          uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_ENA_BIT)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
-          ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch, (unsigned) current, (unsigned) next);
+          // Use strict construction: Base 0x4000 + Preserved Child Lock + New Mode. Clears all other bits (like Schedule).
+          uint16_t next = (uint16_t) (0x4000 | (current & PACKED_CONFIGURATION_CHILD_LOCK_MASK) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+          ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (strict cleanup)", (unsigned) ch, (unsigned) current, (unsigned) next);
           if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
             // Schedule another quick check
             this->urgent_channels_.push_back(ch);
-            this->suspend_polling_until_ = millis() + 100;
+            this->suspend_polling_until_ = millis() + 1000; // Give controller 1s to apply changes
           }
         } else {
           // Achieved desired mode; clear desire
@@ -227,12 +228,13 @@ void WavinAHC9000::update() {
                 uint16_t current = raw_cfg;
                 // Enforce standard OFF bits or MANUAL, and clear SCHED_ENA to ensure manual mode
                 uint16_t new_bits = (want == climate::CLIMATE_MODE_OFF) ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL;
-                uint16_t next = (uint16_t) ((current & ~(PACKED_CONFIGURATION_MODE_MASK | PACKED_CONFIGURATION_SCHED_ENA_BIT)) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
-                ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (cleared SCHED_ENA)", (unsigned) ch_num, (unsigned) current, (unsigned) next);
+                // Use strict construction: Base 0x4000 + Preserved Child Lock + New Mode. Clears all other bits.
+                uint16_t next = (uint16_t) (0x4000 | (current & PACKED_CONFIGURATION_CHILD_LOCK_MASK) | (new_bits & PACKED_CONFIGURATION_MODE_MASK));
+                ESP_LOGW(TAG, "Reconciling mode for ch=%u cur=0x%04X next=0x%04X (strict cleanup)", (unsigned) ch_num, (unsigned) current, (unsigned) next);
                 if (this->write_register(CAT_PACKED, ch_page, PACKED_CONFIGURATION, next)) {
                   // Schedule another quick check
                   this->urgent_channels_.push_back(ch_num);
-                  this->suspend_polling_until_ = millis() + 100;
+                  this->suspend_polling_until_ = millis() + 1000; // Give controller 1s to apply changes
                 }
               } else {
                 // Achieved desired mode; clear desire
@@ -822,7 +824,9 @@ void WavinAHC9000::write_channel_mode(uint8_t channel, climate::ClimateMode mode
   // This provides reliable manual control by clearing all scheduling/program flags
   bool ok = false;
   {
-    uint16_t strict_val = (uint16_t) (0x4000 | (mode == climate::CLIMATE_MODE_OFF ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL));
+    // Preserve child lock state if known, otherwise assume off for the blind write
+    uint16_t child_lock_bit = this->channels_[channel].child_lock ? PACKED_CONFIGURATION_CHILD_LOCK_MASK : 0;
+    uint16_t strict_val = (uint16_t) (0x4000 | child_lock_bit | (mode == climate::CLIMATE_MODE_OFF ? PACKED_CONFIGURATION_MODE_STANDBY : PACKED_CONFIGURATION_MODE_MANUAL));
     ok = this->write_register(CAT_PACKED, page, PACKED_CONFIGURATION, strict_val);
   }
   if (!ok) {
@@ -843,7 +847,7 @@ void WavinAHC9000::write_channel_mode(uint8_t channel, climate::ClimateMode mode
   if (ok) {
     this->channels_[channel].mode = (mode == climate::CLIMATE_MODE_OFF) ? climate::CLIMATE_MODE_OFF : climate::CLIMATE_MODE_HEAT;
     this->urgent_channels_.push_back(channel);
-    this->suspend_polling_until_ = millis() + 100; // 100 ms guard
+    this->suspend_polling_until_ = millis() + 1000; // 1s guard to allow controller to settle
   } else {
     ESP_LOGW(TAG, "Mode write failed for ch=%u", (unsigned) channel);
   }
