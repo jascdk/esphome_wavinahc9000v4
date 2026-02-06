@@ -103,7 +103,9 @@ void WavinAHC9000::update() {
   // Process any urgent channels first (scheduled due to a write)
   std::vector<uint16_t> regs;
   uint8_t urgent_processed = 0;
-  while (!this->urgent_channels_.empty() && urgent_processed < this->poll_channels_per_cycle_) {
+  // Allow a burst of urgent updates (up to 4) even if background polling is slow
+  uint8_t urgent_limit = std::max<uint8_t>(4, this->poll_channels_per_cycle_);
+  while (!this->urgent_channels_.empty() && urgent_processed < urgent_limit) {
     uint8_t ch = this->urgent_channels_.front();
     this->urgent_channels_.erase(this->urgent_channels_.begin());
     uint8_t ch_page = (uint8_t) (ch - 1);

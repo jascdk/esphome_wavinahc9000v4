@@ -56,9 +56,10 @@ uart:
 wavin_ahc9000:
   id: wavin_controller
   uart_id: uart_bus
-  update_interval: 5s
+  update_interval: 0.5s # Fast updates (2Hz) for snappy UI response
   tx_enable_pin: GPIO5
   flow_control_pin: GPIO5
+  poll_channels_per_cycle: 1 # Read 1 channel at a time to prevent system lag
 
 # ----------------------
 # Climate Entities (Required for Sync Test)
