@@ -1,0 +1,120 @@
+# Wavin AHC-9000 - Standby Switch Test Configuration
+#
+# This configuration is designed to test the new 'standby' switch type.
+# It verifies:
+# 1. Basic ON/OFF control of standby mode
+# 2. Bi-directional sync between Switch and Climate entity
+# 3. Group/Master switch functionality
+
+substitutions:
+  device_name: wavin-standby-test
+  friendly_name: Wavin Standby Test
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32dev
+
+# Enable DEBUG logging to see state transitions clearly
+logger:
+  level: DEBUG
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  ap:
+    ssid: "Wavin Standby Test"
+    password: "fallback123"
+
+captive_portal:
+
+# Load component from local source for testing
+external_components:
+  - source: 
+      type: local
+      path: ../esphome/components
+    components: [wavin_ahc9000]
+
+uart:
+  id: uart_bus
+  tx_pin: GPIO17
+  rx_pin: GPIO16
+  baud_rate: 38400
+  parity: EVEN
+
+wavin_ahc9000:
+  id: wavin_controller
+  uart_id: uart_bus
+  update_interval: 5s
+  tx_enable_pin: GPIO5
+  flow_control_pin: GPIO5
+
+# ----------------------
+# Climate Entities (Required for Sync Test)
+# ----------------------
+climate:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Zone 1 Climate"
+    channel: 1
+    id: climate_z1
+
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    name: "Zone 2 Climate"
+    channel: 2
+    id: climate_z2
+
+# ----------------------
+# Standby Switches
+# ----------------------
+switch:
+  # TEST CASE 1: Single Channel Control
+  # Controls standby for Zone 1 only
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: standby
+    channel: 1
+    name: "Zone 1 Standby"
+    id: switch_standby_z1
+    icon: "mdi:power"
+
+  # TEST CASE 2: Another Single Channel
+  # Controls standby for Zone 2 only
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: standby
+    channel: 2
+    name: "Zone 2 Standby"
+    id: switch_standby_z2
+    icon: "mdi:power"
+
+  # TEST CASE 3: Group/Master Control
+  # Controls standby for both Zone 1 and Zone 2
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: standby
+    members: [1, 2]
+    name: "Master Standby"
+    id: switch_master_standby
+    icon: "mdi:power-standby"
+
+# ----------------------
+# Verification Sensors
+# ----------------------
+text_sensor:
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: device_name
+    name: "Device Name"
+  - platform: wavin_ahc9000
+    wavin_ahc9000_id: wavin_controller
+    type: sw_version
+    name: "Software Version"
