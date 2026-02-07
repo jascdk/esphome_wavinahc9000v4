@@ -34,12 +34,6 @@ void WavinAHC9000::setup() {
   // Initialize channel steps to ensure state machine starts correctly
   for (int i = 0; i < 16; i++) this->channel_step_[i] = 0;
 
-  // Reduce default timeout to prevent loop blocking on offline channels
-  // 38400 baud is fast; 1000ms is excessive and causes lag if channels timeout
-  if (this->receive_timeout_ms_ == 1000) {
-    this->receive_timeout_ms_ = 200;
-  }
-
   // Read device info at startup
   this->read_device_info();
   
