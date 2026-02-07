@@ -31,6 +31,15 @@ static uint16_t crc16(const uint8_t *frame, size_t len) {
 
 void WavinAHC9000::setup() { 
   ESP_LOGCONFIG(TAG, "Wavin AHC9000 hub setup");
+  // Initialize channel steps to ensure state machine starts correctly
+  for (int i = 0; i < 16; i++) this->channel_step_[i] = 0;
+
+  // Reduce default timeout to prevent loop blocking on offline channels
+  // 38400 baud is fast; 1000ms is excessive and causes lag if channels timeout
+  if (this->receive_timeout_ms_ == 1000) {
+    this->receive_timeout_ms_ = 200;
+  }
+
   // Read device info at startup
   this->read_device_info();
   
@@ -90,6 +99,18 @@ void WavinAHC9000::add_temp_low_number(WavinTempLowNumber *num) {
 void WavinAHC9000::add_temp_high_number(WavinTempHighNumber *num) {
   if (num != nullptr) {
     this->temp_high_numbers_.push_back(num);
+  }
+}
+
+void WavinAHC9000::add_floor_min_number(WavinFloorMinNumber *num) {
+  if (num != nullptr) {
+    this->floor_min_numbers_.push_back(num);
+  }
+}
+
+void WavinAHC9000::add_floor_max_number(WavinFloorMaxNumber *num) {
+  if (num != nullptr) {
+    this->floor_max_numbers_.push_back(num);
   }
 }
 
@@ -156,6 +177,11 @@ void WavinAHC9000::update() {
     if (st.primary_index > 0) {
       uint8_t elem_page = (uint8_t) (st.primary_index - 1);
       if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
+              // Check element status directly for faster/more detailed lost detection
+              uint16_t est = regs[ELEM_STATUS];
+              bool is_lost = (est & ELEM_STATUS_LOST_MASK) != 0;
+              bool is_alive = (est & ELEM_STATUS_ALIVE_MASK) != 0;
+              ESP_LOGD(TAG, "CH%u element status=0x%04X alive=%d lost=%d", (unsigned) ch, est, is_alive, is_lost);
         st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
         this->yaml_elem_read_mask_ |= (1u << (ch - 1));
         if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
@@ -184,9 +210,31 @@ void WavinAHC9000::update() {
 
   // Round-robin staged reads across active channels; each advances one step per update
   if (this->active_channels_.empty()) {
-    // Default to all 1..16 if none explicitly configured
-    this->active_channels_.reserve(16);
-    for (uint8_t ch = 1; ch <= 16; ch++) this->active_channels_.push_back(ch);
+    // Try to infer active channels from configured entities to avoid scanning all 16
+    std::set<uint8_t> inferred;
+    for (auto *c : this->single_ch_climates_) {
+      if (c->is_single_channel()) inferred.insert(c->get_single_channel());
+    }
+    for (auto *c : this->group_climates_) {
+      for (auto ch : c->get_members()) inferred.insert(ch);
+    }
+    for (auto &kv : this->temperature_sensors_) inferred.insert(kv.first);
+    for (auto &kv : this->battery_sensors_) inferred.insert(kv.first);
+    for (auto &kv : this->floor_temperature_sensors_) inferred.insert(kv.first);
+    for (auto &kv : this->humidity_sensors_) inferred.insert(kv.first);
+    for (auto &kv : this->signal_strength_sensors_) inferred.insert(kv.first);
+    for (auto &kv : this->child_lock_switches_) inferred.insert(kv.first);
+    for (auto &kv : this->online_binary_sensors_) inferred.insert(kv.first);
+    
+    if (!inferred.empty()) {
+      for (uint8_t ch : inferred) this->active_channels_.push_back(ch);
+      ESP_LOGI(TAG, "Inferred %u active channels from configuration", (unsigned) this->active_channels_.size());
+    } else {
+      // Default to all 1..16 if none explicitly configured
+      this->active_channels_.reserve(16);
+      for (uint8_t ch = 1; ch <= 16; ch++) this->active_channels_.push_back(ch);
+      ESP_LOGW(TAG, "No channels configured, defaulting to scanning all 1-16");
+    }
   }
 
   for (uint8_t i = urgent_processed; i < this->poll_channels_per_cycle_ && !this->active_channels_.empty(); i++) {
@@ -207,10 +255,16 @@ void WavinAHC9000::update() {
             st.all_tp_lost = (v & CH_PRIMARY_ELEMENT_ALL_TP_LOST_MASK) != 0;
             ESP_LOGD(TAG, "CH%u primary elem=%u lost=%s", ch_num, (unsigned) st.primary_index, st.all_tp_lost ? "Y" : "N");
             if (st.primary_index > 0 && !st.all_tp_lost) this->yaml_primary_present_mask_ |= (1u << (ch_num - 1));
+            step = 1;
           } else {
             ESP_LOGW(TAG, "CH%u: primary element read failed", ch_num);
+            // If we have cached primary index, assume it's still valid and proceed
+            if (st.primary_index > 0) {
+              step = 1;
+            } else {
+              step = 0; // Must retry if we don't know the element index
+            }
           }
-          step = 1;
           break;
         }
         case 1: {
@@ -243,28 +297,47 @@ void WavinAHC9000::update() {
                 this->desired_mode_.erase(it_des);
               }
             }
+            step = 2;
           } else {
             ESP_LOGW(TAG, "CH%u: mode read failed", ch_num);
           }
-          step = 2;
+          step = 2; // Always advance to try reading setpoint
           break;
         }
         case 2: {
           if (this->read_registers(CAT_PACKED, ch_page, PACKED_MANUAL_TEMPERATURE, 1, regs) && regs.size() >= 1) {
             st.setpoint_c = this->raw_to_c(regs[0]);
             ESP_LOGD(TAG, "CH%u setpoint=%.1fC", ch_num, st.setpoint_c);
+            step = 3;
           } else {
             ESP_LOGW(TAG, "CH%u: setpoint read failed", ch_num);
           }
-          step = 3;
+          step = 3; // Always advance to try reading limits
           break;
         }
         case 3: {
           // Read floor min+max together (contiguous) to reduce transactions
           if (this->read_registers(CAT_PACKED, ch_page, PACKED_FLOOR_MIN_TEMPERATURE, 2, regs) && regs.size() >= 2) {
-            st.floor_min_c = this->raw_to_c(regs[0]);
-            st.floor_max_c = this->raw_to_c(regs[1]);
+            float fmin = this->raw_to_c(regs[0]);
+            float fmax = this->raw_to_c(regs[1]);
+            
+            // Sync logic for floor min
+            if (!std::isnan(st.prev_floor_min_c) && std::abs(fmin - st.prev_floor_min_c) > 0.01f) {
+               this->sync_floor_min_to_group(ch_num, fmin);
+            }
+            st.prev_floor_min_c = fmin;
+            st.floor_min_c = fmin;
+
+            // Sync logic for floor max
+            if (!std::isnan(st.prev_floor_max_c) && std::abs(fmax - st.prev_floor_max_c) > 0.01f) {
+               this->sync_floor_max_to_group(ch_num, fmax);
+            }
+            st.prev_floor_max_c = fmax;
+            st.floor_max_c = fmax;
+          } else {
+            ESP_LOGW(TAG, "CH%u: floor limits read failed", ch_num);
           }
+
           if (this->read_registers(CAT_CHANNELS, ch_page, CH_TIMER_EVENT, 1, regs) && regs.size() >= 1) {
             bool heating = (regs[0] & CH_TIMER_EVENT_OUTP_ON_MASK) != 0;
             st.action = heating ? climate::CLIMATE_ACTION_HEATING : climate::CLIMATE_ACTION_IDLE;
@@ -272,14 +345,18 @@ void WavinAHC9000::update() {
           } else {
             ESP_LOGW(TAG, "CH%u: action read failed", ch_num);
           }
-          step = 4;
+          step = 4; // Always advance to try reading temperatures
           break;
         }
         case 4: {
           if (st.primary_index > 0) {
             uint8_t elem_page = (uint8_t) (st.primary_index - 1);
             if (this->read_registers(CAT_ELEMENTS, elem_page, 0x00, 12, regs) && regs.size() > ELEM_AIR_TEMPERATURE) {
-              st.current_temp_c = this->raw_to_c(regs[ELEM_AIR_TEMPERATURE]);
+              // Check element status directly for faster/more detailed lost detection
+              uint16_t est = regs[ELEM_STATUS];
+              bool is_lost = (est & ELEM_STATUS_LOST_MASK) != 0;
+              bool is_alive = (est & ELEM_STATUS_ALIVE_MASK) != 0;
+              ESP_LOGD(TAG, "CH%u element status=0x%04X alive=%d lost=%d", ch_num, est, is_alive, is_lost);
               this->yaml_elem_read_mask_ |= (1u << (ch_num - 1));
               if (regs.size() > ELEM_FLOOR_TEMPERATURE) {
                 float ft = this->raw_to_c(regs[ELEM_FLOOR_TEMPERATURE]);
@@ -315,6 +392,18 @@ void WavinAHC9000::update() {
                   st.humidity_pct = NAN;
                 }
               }
+              // Signal strength (RSSI)
+              if (regs.size() > ELEM_RSSI) {
+                uint16_t raw = regs[ELEM_RSSI];
+                // Spec: Signed value, 0 = -74dBm, step = 0.5dBm.
+                int8_t val = (int8_t) (raw & 0xFF);
+                st.signal_strength_value = -74.0f + (val * 0.5f);
+                ESP_LOGD(TAG, "CH%u signal=%.1f dBm (raw=0x%04X)", (unsigned) ch_num, st.signal_strength_value, (unsigned) raw);
+                auto it_s = this->signal_strength_sensors_.find(ch_num);
+                if (it_s != this->signal_strength_sensors_.end() && it_s->second != nullptr) {
+                  it_s->second->publish_state(st.signal_strength_value);
+                }
+              }
               // Battery status if available (0..9 scale, where 9=100%)
               if (regs.size() > ELEM_BATTERY_STATUS) {
                 uint16_t raw = regs[ELEM_BATTERY_STATUS];
@@ -328,28 +417,31 @@ void WavinAHC9000::update() {
                 }
               }
             } else {
-              ESP_LOGW(TAG, "CH%u: element temp read failed", ch_num);
+              ESP_LOGW(TAG, "CH%u: element temp read failed", (unsigned) ch_num);
+            }
+            // If bi-directional sync is enabled, proceed to step 5 to read group settings
+            if (this->sync_group_settings_) {
+              step = 5;
+            } else {
+              step = 0;
             }
           } else {
             st.current_temp_c = NAN;
-          }
-          // If bi-directional sync is enabled, proceed to step 5 to read group settings
-          if (this->sync_group_settings_) {
-            step = 5;
-          } else {
+            // If primary_index is 0, we can't read elements. Force a re-scan of primary element next time.
+            ESP_LOGW(TAG, "CH%u: skipping temp read because primary element is unknown", (unsigned) ch_num);
             step = 0;
           }
           break;
         }
         case 5: {
           // Read hysteresis, eco, and comfort temperatures for bi-directional sync
-          // Read all three in one combined request (they're at indices 0x0E, 0x08, 0x09)
-          // Actually read them separately since they're not contiguous in this order
-          // Read eco (0x08) and comfort (0x09) together (contiguous)
+          // Revert to original mapping: Eco=0x08, Comfort=0x09 (contiguous), Hysteresis=0x0E
+          
+          // Read Eco (0x08) and Comfort (0x09) together
           if (this->read_registers(CAT_PACKED, ch_page, PACKED_ECO_TEMPERATURE, 2, regs) && regs.size() >= 2) {
             float eco_temp = this->raw_to_c(regs[0]);
             float comfort_temp = this->raw_to_c(regs[1]);
-            
+
             // Detect changes and sync to group members
             if (!std::isnan(st.prev_comfort_temp_c) && std::abs(comfort_temp - st.prev_comfort_temp_c) > 0.01f) {
               ESP_LOGI(TAG, "CH%u comfort temp changed: %.1f°C -> %.1f°C", ch_num, st.prev_comfort_temp_c, comfort_temp);
@@ -379,11 +471,13 @@ void WavinAHC9000::update() {
           step = 0;
           break;
         }
+        default:
+          step = 0;
+          break;
       }
     }
-
-  // advance to next active channel
-  this->next_active_index_ = (uint8_t) ((this->next_active_index_ + 1) % this->active_channels_.size());
+    // advance to next active channel
+    this->next_active_index_ = (uint8_t) ((this->next_active_index_ + 1) % this->active_channels_.size());
   }
 
   // publish once per cycle
@@ -1570,6 +1664,38 @@ void WavinAHC9000::sync_comfort_temp_to_group(uint8_t changed_channel, float new
   this->update_number_entities(this->temp_high_numbers_, changed_set, new_value, "temp_high");
 }
 
+void WavinAHC9000::sync_floor_min_to_group(uint8_t changed_channel, float new_value) {
+  std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
+  if (!siblings.empty()) {
+    ESP_LOGI(TAG, "Syncing floor_min %.1f°C from CH%u to sibling channel(s): %s", 
+             new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
+    for (uint8_t sibling : siblings) {
+      this->write_channel_floor_min_temperature(sibling, new_value);
+      auto &st = this->channels_[sibling];
+      st.prev_floor_min_c = new_value;
+    }
+    this->update_number_entities(this->floor_min_numbers_, siblings, new_value, "floor_min");
+  }
+  std::set<uint8_t> changed_set = {changed_channel};
+  this->update_number_entities(this->floor_min_numbers_, changed_set, new_value, "floor_min");
+}
+
+void WavinAHC9000::sync_floor_max_to_group(uint8_t changed_channel, float new_value) {
+  std::set<uint8_t> siblings = this->get_group_sibling_channels(changed_channel);
+  if (!siblings.empty()) {
+    ESP_LOGI(TAG, "Syncing floor_max %.1f°C from CH%u to sibling channel(s): %s", 
+             new_value, (unsigned) changed_channel, this->format_sibling_list(siblings).c_str());
+    for (uint8_t sibling : siblings) {
+      this->write_channel_floor_max_temperature(sibling, new_value);
+      auto &st = this->channels_[sibling];
+      st.prev_floor_max_c = new_value;
+    }
+    this->update_number_entities(this->floor_max_numbers_, siblings, new_value, "floor_max");
+  }
+  std::set<uint8_t> changed_set = {changed_channel};
+  this->update_number_entities(this->floor_max_numbers_, changed_set, new_value, "floor_max");
+}
+
 void WavinAHC9000::publish_updates() {
   ESP_LOGV(TAG, "Publishing updates: %u single climates, %u group climates",
            (unsigned) this->single_ch_climates_.size(), (unsigned) this->group_climates_.size());
@@ -1624,6 +1750,15 @@ void WavinAHC9000::publish_updates() {
     }
   }
 
+  // Signal strength sensors
+  for (auto &kv : this->signal_strength_sensors_) {
+    uint8_t ch = kv.first;
+    auto *s = kv.second;
+    if (!s) continue;
+    float v = this->channels_[ch].signal_strength_value;
+    if (!std::isnan(v)) s->publish_state(v);
+  }
+
   // Child lock switches
   for (auto &kv : this->child_lock_switches_) {
     uint8_t ch = kv.first;
@@ -1632,6 +1767,19 @@ void WavinAHC9000::publish_updates() {
     auto it = this->channels_.find(ch);
     if (it != this->channels_.end()) {
       sw->publish_state(it->second.child_lock);
+    }
+  }
+
+  // Online binary sensors
+  for (auto &kv : this->online_binary_sensors_) {
+    uint8_t ch = kv.first;
+    auto *bs = kv.second;
+    if (!bs) continue;
+    auto it = this->channels_.find(ch);
+    if (it != this->channels_.end()) {
+      // Online if configured (primary_index > 0) AND not lost (check both channel and element status)
+      bool online = (it->second.primary_index > 0) && !it->second.all_tp_lost && !it->second.element_lost;
+      bs->publish_state(online);
     }
   }
 
@@ -1661,11 +1809,6 @@ void WavinAHC9000::publish_updates() {
     }
   }
 
-  // YAML readiness: ready if we have discovered at least one active channel and have completed at least one element read for all of them.
-  {
-    uint16_t required = this->yaml_primary_present_mask_;
-    bool ready = (required != 0) && ((this->yaml_elem_read_mask_ & required) == required);
-  }
 }
 
 float WavinAHC9000::get_channel_current_temp(uint8_t channel) const {
@@ -1931,6 +2074,46 @@ void WavinAHC9000::read_device_info() {
     }
   } else {
     ESP_LOGW(TAG, "Failed to read device info registers");
+  }
+}
+
+void WavinAHC9000::start_valve_maintenance() {
+  ESP_LOGI(TAG, "Starting valve maintenance cycle (10 minutes at 40.0°C)");
+  
+  // Only save state if we haven't already (avoid overwriting backup with 40.0 if triggered twice)
+  if (this->maintenance_restore_setpoints_.empty()) {
+    for (uint8_t ch : this->active_channels_) {
+      float current = this->get_channel_setpoint(ch);
+      if (!std::isnan(current)) {
+        this->maintenance_restore_setpoints_[ch] = current;
+        // Set to max temperature to force valves open
+        this->write_channel_setpoint(ch, 40.0f);
+      }
+    }
+  }
+
+  // Publish state ON
+  if (this->valve_maintenance_switch_ != nullptr) {
+    this->valve_maintenance_switch_->publish_state(true);
+  }
+
+  // Schedule stop in 10 minutes
+  this->set_timeout("valve_maintenance", 10 * 60 * 1000, [this]() {
+    this->stop_valve_maintenance();
+  });
+}
+
+void WavinAHC9000::stop_valve_maintenance() {
+  ESP_LOGI(TAG, "Stopping valve maintenance cycle, restoring setpoints");
+  this->cancel_timeout("valve_maintenance");
+
+  for (auto const& [ch, setpoint] : this->maintenance_restore_setpoints_) {
+    this->write_channel_setpoint(ch, setpoint);
+  }
+  this->maintenance_restore_setpoints_.clear();
+
+  if (this->valve_maintenance_switch_ != nullptr) {
+    this->valve_maintenance_switch_->publish_state(false);
   }
 }
 

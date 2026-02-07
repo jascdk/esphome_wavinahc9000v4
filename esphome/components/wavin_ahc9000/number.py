@@ -14,6 +14,8 @@ CONF_CLIMATE_ID = "climate_id"
 WavinHysteresisNumber = ns.class_("WavinHysteresisNumber", number.Number, cg.Component)
 WavinTempLowNumber = ns.class_("WavinTempLowNumber", number.Number, cg.Component)
 WavinTempHighNumber = ns.class_("WavinTempHighNumber", number.Number, cg.Component)
+WavinFloorMinNumber = ns.class_("WavinFloorMinNumber", number.Number, cg.Component)
+WavinFloorMaxNumber = ns.class_("WavinFloorMaxNumber", number.Number, cg.Component)
 
 def validate_number_config(config):
     """Validate number configuration based on type."""
@@ -27,8 +29,8 @@ def validate_number_config(config):
             raise cv.Invalid("hysteresis requires either 'climate_id' or 'members'")
         if has_climate_id and has_members:
             raise cv.Invalid("hysteresis cannot have both 'climate_id' and 'members'")
-    elif num_type in ["temp_low", "temp_high"]:
-        # temp_low and temp_high require members only
+    elif num_type in ["temp_low", "temp_high", "floor_min", "floor_max"]:
+        # these types require members only
         if not has_members:
             raise cv.Invalid(f"{num_type} requires 'members'")
         if has_climate_id:
@@ -45,6 +47,8 @@ CONFIG_SCHEMA = cv.All(
                 "hysteresis",
                 "temp_low",
                 "temp_high",
+                "floor_min",
+                "floor_max",
                 lower=True,
             ),
             cv.Optional(CONF_CLIMATE_ID): cv.use_id(WavinZoneClimate),
@@ -72,6 +76,14 @@ async def to_code(config):
         rhs = WavinTempHighNumber.new()
         var = cg.Pvariable(config[CONF_ID], rhs, type_=WavinTempHighNumber)
         await number.register_number(var, config, min_value=6.0, max_value=40.0, step=0.5)
+    elif num_type == "floor_min":
+        rhs = WavinFloorMinNumber.new()
+        var = cg.Pvariable(config[CONF_ID], rhs, type_=WavinFloorMinNumber)
+        await number.register_number(var, config, min_value=5.0, max_value=35.0, step=0.5)
+    elif num_type == "floor_max":
+        rhs = WavinFloorMaxNumber.new()
+        var = cg.Pvariable(config[CONF_ID], rhs, type_=WavinFloorMaxNumber)
+        await number.register_number(var, config, min_value=5.0, max_value=35.0, step=0.5)
     
     await cg.register_component(var, config)
     cg.add(var.set_parent(hub))

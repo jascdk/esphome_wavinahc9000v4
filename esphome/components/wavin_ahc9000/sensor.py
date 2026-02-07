@@ -8,6 +8,9 @@ from esphome.const import (
     DEVICE_CLASS_TEMPERATURE,
     UNIT_CELSIUS,
     DEVICE_CLASS_HUMIDITY,
+    ICON_WIFI,
+    UNIT_DECIBEL_MILLIWATT,
+    DEVICE_CLASS_SIGNAL_STRENGTH,
 )
 
 from . import WavinAHC9000
@@ -54,6 +57,7 @@ CONFIG_SCHEMA = cv.All(
                 "floor_max_temperature",
                 "average_temperature",
                 "humidity",
+                "signal_strength",
                 lower=True,
             ),
         }
@@ -78,6 +82,12 @@ async def to_code(config):
         cg.add(sens.set_unit_of_measurement(UNIT_PERCENT))
         cg.add(sens.set_accuracy_decimals(1))
         cg.add(hub.add_channel_humidity_sensor(config[CONF_CHANNEL], sens))
+        cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
+    elif config[CONF_TYPE] == "signal_strength":
+        cg.add(sens.set_device_class(DEVICE_CLASS_SIGNAL_STRENGTH))
+        cg.add(sens.set_unit_of_measurement(UNIT_DECIBEL_MILLIWATT))
+        cg.add(sens.set_accuracy_decimals(1))
+        cg.add(hub.add_channel_signal_strength_sensor(config[CONF_CHANNEL], sens))
         cg.add(hub.add_active_channel(config[CONF_CHANNEL]))
     elif config[CONF_TYPE] == "average_temperature":
         # average_temperature sensor with members list

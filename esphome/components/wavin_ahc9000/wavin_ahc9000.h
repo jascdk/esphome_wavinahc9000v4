@@ -19,14 +19,18 @@ namespace sensor { class Sensor; }
 namespace switch_ { class Switch; }
 namespace text_sensor { class TextSensor; }
 namespace number { class Number; }
+namespace binary_sensor { class BinarySensor; }
 namespace wavin_ahc9000 {
 
 // Forward
 class WavinZoneClimate;
 class WavinChildLockSwitch;
+class WavinValveMaintenanceSwitch;
 class WavinHysteresisNumber;
 class WavinTempLowNumber;
 class WavinTempHighNumber;
+class WavinFloorMinNumber;
+class WavinFloorMaxNumber;
 
 class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
  public:
@@ -60,9 +64,14 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_channel_floor_max_temperature_sensor(uint8_t ch, sensor::Sensor *s);
   // Humidity sensor
   void add_channel_humidity_sensor(uint8_t ch, sensor::Sensor *s);
+  // Signal strength sensor
+  void add_channel_signal_strength_sensor(uint8_t ch, sensor::Sensor *s);
+  // Online status binary sensor
+  void add_channel_online_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s);
   // Average temperature sensor with member channels
   void add_average_temperature_sensor(sensor::Sensor *s, const std::vector<int> &members);
   void add_channel_child_lock_switch(uint8_t ch, switch_::Switch *s) { this->child_lock_switches_[ch] = s; }
+  void add_valve_maintenance_switch(switch_::Switch *s) { this->valve_maintenance_switch_ = s; }
   void add_active_channel(uint8_t ch);
   
   // Device info text sensors
@@ -98,6 +107,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void request_status_channel(uint8_t ch_index);
   void normalize_channel_config(uint8_t channel, bool off);
   void generate_yaml_suggestion();
+  // Valve maintenance: set all active channels to max temp for a duration
+  void start_valve_maintenance();
+  void stop_valve_maintenance();
+
   // Debug helper to dump registers for a channel (to identify floor min/max addresses)
   void dump_channel_floor_limits(uint8_t channel);
   // Accessor for last generated YAML (for HA notifications via lambda)
@@ -137,6 +150,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void add_hysteresis_number(WavinHysteresisNumber *num);
   void add_temp_low_number(WavinTempLowNumber *num);
   void add_temp_high_number(WavinTempHighNumber *num);
+  void add_floor_min_number(WavinFloorMinNumber *num);
+  void add_floor_max_number(WavinFloorMaxNumber *num);
 
   // Data access
   float get_channel_current_temp(uint8_t channel) const;
@@ -163,6 +178,8 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   void sync_hysteresis_to_group(uint8_t changed_channel, float new_value);
   void sync_eco_temp_to_group(uint8_t changed_channel, float new_value);
   void sync_comfort_temp_to_group(uint8_t changed_channel, float new_value);
+  void sync_floor_min_to_group(uint8_t changed_channel, float new_value);
+  void sync_floor_max_to_group(uint8_t changed_channel, float new_value);
   std::string format_sibling_list(const std::set<uint8_t> &siblings) const;
   template<typename T>
   void update_number_entities(const std::vector<T *> &entities, const std::set<uint8_t> &siblings, 
@@ -188,17 +205,21 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
     float setpoint_c{NAN};
     float standby_setpoint_c{NAN};
     float humidity_pct{NAN}; // humidity percentage (0-100)
+    float signal_strength_value{NAN}; // Signal strength in dBm
     climate::ClimateMode mode{climate::CLIMATE_MODE_HEAT};
     climate::ClimateAction action{climate::CLIMATE_ACTION_OFF};
     uint8_t battery_pct{255}; // 0..100; 255=unknown
     uint16_t primary_index{0};
     bool all_tp_lost{false};
+    bool element_lost{false}; // From element register (faster detection)
     bool has_floor_sensor{false};
     bool child_lock{false};
     // Bi-directional sync tracking (previous values for change detection)
     float prev_hysteresis_c{NAN};
     float prev_eco_temp_c{NAN};
     float prev_comfort_temp_c{NAN};
+    float prev_floor_min_c{NAN};
+    float prev_floor_max_c{NAN};
   };
 
   std::map<uint8_t, ChannelState> channels_;
@@ -213,7 +234,10 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::map<uint8_t, sensor::Sensor *> floor_min_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> floor_max_temperature_sensors_;
   std::map<uint8_t, sensor::Sensor *> humidity_sensors_;
+  std::map<uint8_t, sensor::Sensor *> signal_strength_sensors_;
   std::map<uint8_t, switch_::Switch *> child_lock_switches_;
+  switch_::Switch *valve_maintenance_switch_{nullptr};
+  std::map<uint8_t, binary_sensor::BinarySensor *> online_binary_sensors_;
   // Average temperature sensors: sensor pointer -> list of member channels
   struct AverageTempSensor {
     sensor::Sensor *sensor;
@@ -247,6 +271,9 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   std::vector<WavinHysteresisNumber *> hysteresis_numbers_;
   std::vector<WavinTempLowNumber *> temp_low_numbers_;
   std::vector<WavinTempHighNumber *> temp_high_numbers_;
+  std::vector<WavinFloorMinNumber *> floor_min_numbers_;
+  std::vector<WavinFloorMaxNumber *> floor_max_numbers_;
+  std::map<uint8_t, float> maintenance_restore_setpoints_; // Backup of setpoints before maintenance
 
   float temp_divisor_{10.0f};
   uint32_t last_poll_ms_{0};
@@ -287,6 +314,7 @@ class WavinAHC9000 : public PollingComponent, public uart::UARTDevice {
   static constexpr uint8_t ELEM_AIR_TEMPERATURE = 0x04; // index within block
   static constexpr uint8_t ELEM_FLOOR_TEMPERATURE = 0x05; // index for floor probe
   static constexpr uint8_t ELEM_BATTERY_STATUS = 0x0A;  // not used yet
+  static constexpr uint8_t ELEM_RSSI = 0x09;            // Signal strength / RSSI
   static constexpr uint8_t ELEM_HUMIDITY = 0x0B;  // humidity sensor (if available)
   
   // ELEM_STATUS bit masks (from Modbus documentation page 11)
@@ -386,6 +414,20 @@ class WavinChildLockSwitch : public switch_::Switch {
   std::vector<uint8_t> members_{};
 };
 
+// Switch to trigger valve maintenance (all zones to max temp for 10 mins)
+class WavinValveMaintenanceSwitch : public switch_::Switch {
+ public:
+  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
+ protected:
+  void write_state(bool state) override {
+    if (this->parent_ != nullptr) {
+      if (state) this->parent_->start_valve_maintenance();
+      else this->parent_->stop_valve_maintenance();
+    }
+  }
+  WavinAHC9000 *parent_{nullptr};
+};
+
 // Inline helpers for configuring sensors
 inline void WavinAHC9000::add_channel_battery_sensor(uint8_t ch, sensor::Sensor *s) {
   this->battery_sensors_[ch] = s;
@@ -409,6 +451,14 @@ inline void WavinAHC9000::add_channel_floor_max_temperature_sensor(uint8_t ch, s
 
 inline void WavinAHC9000::add_channel_humidity_sensor(uint8_t ch, sensor::Sensor *s) {
   this->humidity_sensors_[ch] = s;
+}
+
+inline void WavinAHC9000::add_channel_signal_strength_sensor(uint8_t ch, sensor::Sensor *s) {
+  this->signal_strength_sensors_[ch] = s;
+}
+
+inline void WavinAHC9000::add_channel_online_binary_sensor(uint8_t ch, binary_sensor::BinarySensor *s) {
+  this->online_binary_sensors_[ch] = s;
 }
 
 class WavinZoneClimate : public climate::Climate, public Component {
@@ -683,6 +733,80 @@ class WavinTempHighNumber : public number::Number, public Component {
   }
 
   static constexpr float DEFAULT_COMFORT_TEMP = 40.0f;
+  WavinAHC9000 *parent_{nullptr};
+  std::vector<uint8_t> members_{};
+  ESPPreferenceObject pref_;
+};
+
+// Floor Min Temperature Number
+class WavinFloorMinNumber : public number::Number, public Component {
+ public:
+  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
+  void set_members(const std::vector<int> &members) {
+    this->members_.clear();
+    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
+  }
+  const std::vector<uint8_t> &get_members() const { return this->members_; }
+  
+  void setup() override {
+    if (this->parent_ != nullptr) this->parent_->add_floor_min_number(this);
+    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    float value;
+    if (this->pref_.load(&value)) {
+      this->write_to_thermostat(value);
+      this->publish_state(value);
+    }
+  }
+ protected:
+  void control(float value) override {
+    this->publish_state(value);
+    this->pref_.save(&value);
+    this->write_to_thermostat(value);
+  }
+  void write_to_thermostat(float value) {
+    if (this->parent_ == nullptr || this->members_.empty()) return;
+    ESP_LOGI("wavin_ahc9000.number", "Writing floor_min %.1f°C to %zu channel(s)", value, this->members_.size());
+    for (uint8_t ch : this->members_) {
+      this->parent_->write_channel_floor_min_temperature(ch, value);
+    }
+  }
+  WavinAHC9000 *parent_{nullptr};
+  std::vector<uint8_t> members_{};
+  ESPPreferenceObject pref_;
+};
+
+// Floor Max Temperature Number
+class WavinFloorMaxNumber : public number::Number, public Component {
+ public:
+  void set_parent(WavinAHC9000 *p) { this->parent_ = p; }
+  void set_members(const std::vector<int> &members) {
+    this->members_.clear();
+    for (int m : members) this->members_.push_back(static_cast<uint8_t>(m));
+  }
+  const std::vector<uint8_t> &get_members() const { return this->members_; }
+  
+  void setup() override {
+    if (this->parent_ != nullptr) this->parent_->add_floor_max_number(this);
+    this->pref_ = global_preferences->make_preference<float>(this->get_object_id_hash());
+    float value;
+    if (this->pref_.load(&value)) {
+      this->write_to_thermostat(value);
+      this->publish_state(value);
+    }
+  }
+ protected:
+  void control(float value) override {
+    this->publish_state(value);
+    this->pref_.save(&value);
+    this->write_to_thermostat(value);
+  }
+  void write_to_thermostat(float value) {
+    if (this->parent_ == nullptr || this->members_.empty()) return;
+    ESP_LOGI("wavin_ahc9000.number", "Writing floor_max %.1f°C to %zu channel(s)", value, this->members_.size());
+    for (uint8_t ch : this->members_) {
+      this->parent_->write_channel_floor_max_temperature(ch, value);
+    }
+  }
   WavinAHC9000 *parent_{nullptr};
   std::vector<uint8_t> members_{};
   ESPPreferenceObject pref_;
