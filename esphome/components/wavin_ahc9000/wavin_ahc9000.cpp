@@ -34,6 +34,9 @@ void WavinAHC9000::setup() {
   // Initialize channel steps to ensure state machine starts correctly
   for (int i = 0; i < 16; i++) this->channel_step_[i] = 0;
 
+  // Boost polling speed to 4 channels per cycle to ensure fast discovery of all 16 channels
+  if (this->poll_channels_per_cycle_ == 2) this->poll_channels_per_cycle_ = 4;
+
   // Read device info at startup
   this->read_device_info();
   
@@ -204,31 +207,11 @@ void WavinAHC9000::update() {
 
   // Round-robin staged reads across active channels; each advances one step per update
   if (this->active_channels_.empty()) {
-    // Try to infer active channels from configured entities to avoid scanning all 16
-    std::set<uint8_t> inferred;
-    for (auto *c : this->single_ch_climates_) {
-      if (c->is_single_channel()) inferred.insert(c->get_single_channel());
-    }
-    for (auto *c : this->group_climates_) {
-      for (auto ch : c->get_members()) inferred.insert(ch);
-    }
-    for (auto &kv : this->temperature_sensors_) inferred.insert(kv.first);
-    for (auto &kv : this->battery_sensors_) inferred.insert(kv.first);
-    for (auto &kv : this->floor_temperature_sensors_) inferred.insert(kv.first);
-    for (auto &kv : this->humidity_sensors_) inferred.insert(kv.first);
-    for (auto &kv : this->signal_strength_sensors_) inferred.insert(kv.first);
-    for (auto &kv : this->child_lock_switches_) inferred.insert(kv.first);
-    for (auto &kv : this->online_binary_sensors_) inferred.insert(kv.first);
-    
-    if (!inferred.empty()) {
-      for (uint8_t ch : inferred) this->active_channels_.push_back(ch);
-      ESP_LOGI(TAG, "Inferred %u active channels from configuration", (unsigned) this->active_channels_.size());
-    } else {
-      // Default to all 1..16 if none explicitly configured
-      this->active_channels_.reserve(16);
-      for (uint8_t ch = 1; ch <= 16; ch++) this->active_channels_.push_back(ch);
-      ESP_LOGW(TAG, "No channels configured, defaulting to scanning all 1-16");
-    }
+    // Default to scanning all 1..16 channels to ensure nothing is missed.
+    // With poll_channels_per_cycle=4, this takes only 4 cycles (20s) to scan everything.
+    this->active_channels_.reserve(16);
+    for (uint8_t ch = 1; ch <= 16; ch++) this->active_channels_.push_back(ch);
+    ESP_LOGI(TAG, "Scanning all 16 channels for devices");
   }
 
   for (uint8_t i = urgent_processed; i < this->poll_channels_per_cycle_ && !this->active_channels_.empty(); i++) {
